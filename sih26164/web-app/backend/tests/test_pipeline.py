@@ -165,7 +165,10 @@ def test_api_scan_flow():
     from app.main import app
 
     c = TestClient(app)
-    assert c.get("/health").json()["ok"] is True
+    health = c.get("/health").json()
+    assert health["ok"] is True
+    assert {"source", "hsm", "cloud", "runtime"} <= set(health["scanners"])
+    assert health["runtimeProbe"] == "present"
     r = c.post("/scans", json={"target": "sample", "scanners": ["source"]})
     assert r.status_code == 200, r.text
     body = r.json()

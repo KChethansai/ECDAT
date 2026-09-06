@@ -85,6 +85,36 @@ def test_scan_rejects_invalid_risk_horizons(monkeypatch, tmp_path, capsys):
     assert "between 0 and 100" in capsys.readouterr().err
 
 
+def test_explain_offline_paths(monkeypatch, tmp_path, capsys):
+    sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
+    assert _run(monkeypatch, tmp_path, "explain", str(sample),
+                "--ask", "what should we migrate first") == 0
+    out = capsys.readouterr().out
+    assert "# Analyst (migration)" in out and "## UNKNOWN" in out
+    assert _run(monkeypatch, tmp_path, "explain", str(sample),
+                "--finding", "missing-id") == 1
+    assert "unknown finding id" in capsys.readouterr().err
+
+
+def test_explain_provider_failure_is_clean(monkeypatch, tmp_path, capsys):
+    sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
+    assert _run(monkeypatch, tmp_path, "explain", str(sample), "--agent", "ghost") == 1
+    err = capsys.readouterr().err
+    assert "provider unavailable" in err or "unknown agent" in err
+
+
+def test_unknown_options_rejected_not_swallowed(monkeypatch, tmp_path):
+    with __import__("pytest").raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, "status", "--bogus")
+    assert exc.value.code == 2
+
+
+def test_run_unknown_agent_is_clean(monkeypatch, tmp_path, capsys):
+    assert _run(monkeypatch, tmp_path, "run", "--agent", "ghost",
+                "--task", "hi", "--", "--help") == 1
+    assert "unknown agent" in capsys.readouterr().err
+
+
 def test_scan_runtime_requires_explicit_opt_in(monkeypatch, tmp_path, capsys):
     sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
     assert _run(monkeypatch, tmp_path, "scan", str(sample)) == 0

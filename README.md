@@ -15,8 +15,8 @@ tools/                     # external references only (never imported by ECDAT c
 └── fullstack-agent/       # jaredrhod/fullstack-agent, AGPL — independent optional tooling
 obsidian-vault/            # frozen Phase 1–8 reference copy (authoritative vault now lives at ~/Documents/Vaults/SIH)
 sih26164/
-├── cli-agent/             # developer-facing multi-agent orchestration (own git repo, Python stdlib)
-└── web-app/               # SIH product (own git repo, React/Vite + FastAPI)
+├── cli-agent/             # provider-neutral orchestration CLI (Python stdlib, zero runtime deps)
+└── web-app/               # SIH product (React/Vite + FastAPI)
 ```
 
 > The Obsidian Vault is the authoritative persistent AI/project memory.
@@ -31,21 +31,25 @@ sih26164/
 ## Quick start
 
 ```bash
-# CLI agent (Python 3.10+, no dependencies)
+# CLI agent (Python 3.10+, no runtime dependencies)
 cd sih26164/cli-agent
-python -m agent status
-python -m agent memory set demo.key "hello vault"
-python -m agent memory get demo.key
+python scripts/agent status
+python scripts/agent scan ../web-app/backend/samples --summary
+python scripts/agent explain ../web-app/backend/samples/vuln_sample --ask "what should we migrate first"
 
 # Web app backend (FastAPI)
 cd ../web-app/backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload  # GET /health, POST /scans, GET /reports/{id}
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn app.main:app --reload  # :8000 — GET /health, POST /scans, GET /reports/{id}
 
 # Web app frontend
 cd ../frontend
-npm install && npm run dev
+npm install && npm run dev  # :5173, API proxied to :8000
 ```
+
+Runtime analysis and provider Q&A are explicit opt-ins:
+`agent scan <target> --runtime`, `agent explain <target> --agent <name> -- <provider args>`.
+Details per app in their READMEs; end-to-end demo path in `sih26164/web-app/docs/DEMO.md`.
 
 ## Docs
 

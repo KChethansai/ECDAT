@@ -78,11 +78,12 @@ def _summary(target: Path, report: dict, context_notes: list[str],
 
 def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
          migration_years: float = 3.0, qrqc_years_left: float = 10.0,
-         runtime: bool = False) -> dict:
+         runtime: bool = False, persist: bool = True) -> dict:
     """Load bounded vault context, run the real pipeline, and persist durable knowledge.
 
     `runtime` is explicit opt-in: it executes ONLY the bundled first-party probe
     under timeout/isolation. Static scans never execute anything.
+    `persist=False` skips the vault write for read-only questions.
     """
     if any(not 0 <= value <= 100 for value in (data_years, migration_years, qrqc_years_left)):
         raise ValueError("risk horizons must be between 0 and 100")
@@ -96,7 +97,9 @@ def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
                             "chars": len(analysis_context), "maxChars": 4000},
                            runtime=runtime)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S%fZ")
-    note = f"07-Sessions/Scans/{stamp}-scan.md"
-    mem.write(note, _summary(target, report, context_notes, len(analysis_context)))
+    note = ""
+    if persist:
+        note = f"07-Sessions/Scans/{stamp}-scan.md"
+        mem.write(note, _summary(target, report, context_notes, len(analysis_context)))
     return {"report": report, "contextNotes": context_notes,
             "contextChars": len(analysis_context), "memoryNote": note}

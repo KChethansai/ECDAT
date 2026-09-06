@@ -45,7 +45,12 @@ class ScanRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "ecdat", "version": "0.1.0"}
+    """Availability only: API liveness, registered scanners, optional probe presence."""
+    from .scanner.runtime_scanner import PROBE
+
+    return {"ok": True, "service": "ecdat", "version": "0.1.0",
+            "scanners": sorted(SCANNERS),
+            "runtimeProbe": "present" if PROBE.is_file() else "missing"}
 
 
 def resolve_scan_target(raw_target: str) -> Path:

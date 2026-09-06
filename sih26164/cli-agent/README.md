@@ -9,7 +9,10 @@ python scripts/agent init
 python scripts/agent status
 python scripts/agent agents --verbose
 python scripts/agent context "assess TLS findings"
-python scripts/agent scan sih26164/web-app/backend/samples/vuln_sample
+python scripts/agent scan sih26164/web-app/backend/samples/vuln_sample --summary
+python scripts/agent scan sih26164/web-app/backend/samples --runtime --summary  # explicit opt-in probe
+python scripts/agent explain sih26164/web-app/backend/samples/vuln_sample --ask "what should we migrate first"
+python scripts/agent explain sih26164/web-app/backend/samples/vuln_sample --finding <id> --agent codex -- exec -
 python scripts/agent memory set <dotted.key> <value>   # Markdown-backed
 python scripts/agent memory get <dotted.key>
 python scripts/agent memory search <terms> | read <Note> | write <Note> <text> | list [dir]
