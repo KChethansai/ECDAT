@@ -1,8 +1,9 @@
 """Extensible interfaces with clearly-marked MOCK implementations.
 
-Real connectors (binary parsing, image layer inspection, HSM/cloud APIs) are future
-work (Phase 6). Each mock returns static illustrative findings with is_mock=True
-so the GUI/CBOM can badge them and nobody mistakes them for discovery.
+Real connectors (binary parsing, image layer inspection, HSM/cloud APIs) remain
+future work beyond current scope. Each mock returns static illustrative findings
+with is_mock=True so the GUI/CBOM can badge them and nobody mistakes them for
+discovery.
 """
 
 from __future__ import annotations
