@@ -8,7 +8,7 @@ from hashlib import sha1
 
 @dataclass
 class CryptoFinding:
-    scanner: str            # e.g. "source", "binary", "hsm(MOCK)" for placeholders
+    scanner: str            # e.g. "source", "binary", "hsm" (all REAL); future placeholders use "name(MOCK)")
     file_path: str
     line: int               # 1-based; 0 if N/A
     algorithm: str          # canonical name, e.g. "RSA", "AES-256", "TLS1.0"

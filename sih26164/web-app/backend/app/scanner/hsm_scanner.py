@@ -21,11 +21,17 @@ STATIC_LIMIT = ("Static configuration evidence only; an HSM integration referenc
 
 PKCS11_URI_RE = re.compile(r"pkcs11:[^\s\"']+", re.I)
 KEEP_ATTRS = {"token", "manufacturer", "model", "library", "slot-description"}
+# Token-aware vendor matching: a vendor name must not be glued to ASCII letters on
+# either side, so `nShield` matches "Thales nShield" but not "IconShield", and
+# `Luna` matches a partition reference but not "lunar". Digits, underscores and
+# punctuation still count as separators (`my_nshield`, `nshield2`, `aws_cloudhsm`
+# keep matching) to avoid missing snake_case identifiers and versioned references.
 VENDOR_RE = re.compile(
-    r"(YubiHSM|Yubico|libyubihsm|yubihsm-connector|softhsm|libsofthsm|opensc-pkcs11|"
-    r"libeTPkcs11|SafeNet|Luna|libCryptoki|nShield|nfast|ncipher|Utimaco|libcs_pkcs11|"
-    r"Securosys|Entrust|Fortanix|Marvell|LiquidSecurity|libcloudhsm|cloudhsm|"
-    r"pkcs11-tool|p11tool|tpm2-pkcs11|opencryptoki|coolkey|libcoolkey)", re.I)
+    r"(?<![A-Za-z])(YubiHSM|Yubico|libyubihsm|yubihsm-connector|softhsm|libsofthsm|"
+    r"opensc-pkcs11|libeTPkcs11|SafeNet|Luna|libCryptoki|nShield|nfast|ncipher|"
+    r"Utimaco|libcs_pkcs11|Securosys|Entrust|Fortanix|Marvell|LiquidSecurity|"
+    r"libcloudhsm|cloudhsm|pkcs11-tool|p11tool|tpm2-pkcs11|opencryptoki|coolkey|"
+    r"libcoolkey)(?![A-Za-z])", re.I)
 MODULE_RE = re.compile(
     r"(?<![A-Za-z0-9_])[\w\-./\\]*?(?:pkcs11|cryptoki)[\w\-./\\]*\.(?:so|dylib|dll)\b|"
     r"\b(?:libyubihsm|libsofthsm2|libCryptoki2_64|libLunaAPI|libcs_pkcs11)\b", re.I)

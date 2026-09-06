@@ -15,6 +15,12 @@ Skips `.git/node_modules/.venv/__pycache__/dist/build/vendor/target/out/coverage
 framework build dirs (`.next/.nuxt`), and caches (`.tox/.mypy_cache/.pytest_cache/.ruff_cache`),
 files >512KB, binary files, and symlinks. Bare `.key` fires only for path-like or
 filename-position references, so code attribute access (`args.key`) stays silent.
+`key_size`/`key_length` fire only in declaration context (`key_size=2048`,
+`key_size: 4096`, `RSA(key_size=1024)`); bare reads (`f.key_size`) stay silent.
+Dependency-lockfile integrity hashes (`"integrity": "sha512-…"` in
+`package-lock.json`/`yarn.lock`/etc.) are classified as `dependency integrity
+metadata` (LOW strength), never as application crypto usage. HSM vendor names are
+matched token-aware (`nShield` matches "Thales nShield", not `IconShield`).
 
 ## Risk
 
@@ -24,10 +30,11 @@ weak classical (DES/RC4/MD5/SHA-1/SSL/TLS≤1.1) → high/medium; else low/mediu
 Heuristic, not scientific certainty: symmetric/hash/library artefacts at sane strengths
 are exempt from Mosca exposure (Grover-margin assumption, see `MOSCA_EXEMPT` in `risk.py`).
 
-## Handoff to Codex (Phase 5 target, not yet implemented)
+## Handoff to operators
 
-CLI → load vault context → invoke this pipeline (`SourceScanner` + `assess` + `recommend` +
-`build_cbom`) → persist durable knowledge to vault → surface report in GUI.
+CLI/API → invoke this pipeline (`run_scan()` in `app/pipeline.py`: scanners +
+`assess` + `recommend` + correlate/relate + intelligence + migration +
+`build_cbom`) → persist durable knowledge to vault (CLI) → surface report in GUI.
 
 ## Recommendations (first-pass, verify against NIST PQC + peer constraints before migration)
 

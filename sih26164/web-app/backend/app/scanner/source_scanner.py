@@ -57,7 +57,9 @@ RULES: list[tuple[str, str, str, float, str]] = [
     # identical to `= server.key`), so only fire for path-like (`certs/service.key`)
     # or quoted (`"server.key"`) refs. Unquoted bare filenames are the accepted miss.
     (r"[\w\-.]+/[\w\-.]*\.key\b|[\"'`][\w\-]+\.key\b", "KEYFILE", "key", 0.6, ""),
-    (r"\bkey[_-]?size\b|\bkey[_-]?length\b", "KEYSIZE", "key", 0.5, ""),
+    # KEYSIZE is handled separately below (_keysize_hit): a bare `key_size`
+    # identifier is usually property/UI access (`f.key_size`), so only
+    # assignment/call-site/config contexts count as key-size evidence.
     (r"\bopenssl\b|\blibcrypto\b|\bboringssl\b", "OpenSSL", "library", 0.7, "lib"),
     (r"\bfrom cryptography\b|\bimport cryptography\b|\bCrypto\.(Cipher|PublicKey)\b", "PyCA", "library", 0.75, "lib"),
     (r"\bhashlib\b|\bnode:crypto\b|\brequire\(['\"]crypto['\"]\)", "STDLIB", "library", 0.6, "lib"),
@@ -67,6 +69,48 @@ RULES: list[tuple[str, str, str, float, str]] = [
 ]
 
 SIZE_RE = re.compile(r"\b(512|1024|2048|3072|4096)\b")
+
+KEYSIZE_TOKEN_RE = re.compile(r"\bkey[_-]?size\b|\bkey[_-]?length\b", re.I)
+# Assignment / mapping / call-site context only: `key_size=2048`,
+# `key_size: 4096`, `"key_size": 1024`, `RSA(key_size=1024)`, `keysize 2048`.
+# A bare read such as `f.key_size`, `{f.key_size}`, `print(key_size)` or a
+# statement colon (`if finding.key_size:`) does not qualify. `==` and `=>`
+# are excluded (comparison / arrow-function parameter, not a value).
+KEYSIZE_VALUE_RE = re.compile(
+    r"(?:\bkey[_-]?size\b|\bkey[_-]?length\b)"
+    r"(?=\s*[\"']?\s*(?:=(?![=>])|:\s*\S)|\s+\d)", re.I)
+KEYSIZE_NUM_RE = re.compile(
+    r"(?:\bkey[_-]?size\b|\bkey[_-]?length\b)\s*[:=]\s*(\d{3,5})\b", re.I)
+
+# Dependency lockfiles whose lines carry package-integrity hashes rather than
+# application crypto usage (e.g. `"integrity": "sha512-…"` in package-lock.json).
+LOCKFILES = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Cargo.lock",
+             "Gemfile.lock", "composer.lock", "poetry.lock", "go.sum"}
+INTEGRITY_RE = re.compile(r"\"integrity\"\s*:\s*\"[^\"]*\"|"
+                          r"\bsha(?:1|224|256|384|512)-[A-Za-z0-9+/=]{16,}", re.I)
+
+
+def _keysize_hit(line: str) -> tuple[bool, int | None]:
+    """True + parsed bits when `key_size`/`key_length` declares a value.
+
+    Keeps `RSA(key_size=1024)`, `key_size=2048`, `key_size: 4096`,
+    `config.key_size = 2048` and `keysize 2048`; skips bare attribute reads
+    such as `f.key_size` or `{f.key_size}`.
+    """
+    if not KEYSIZE_VALUE_RE.search(line):
+        return False, None
+    size = None
+    if match := KEYSIZE_NUM_RE.search(line):
+        try:
+            size = int(match.group(1))
+        except ValueError:
+            size = None
+    return True, size
+
+
+def _lockfile_integrity(filename: str, line: str) -> bool:
+    """True when this line is lockfile integrity metadata, not crypto usage."""
+    return filename.lower() in LOCKFILES and INTEGRITY_RE.search(line) is not None
 CURVE_RE = re.compile(r"(secp256r1|secp384r1|secp521r1|P-256|P-384|P-521|Curve25519|prime256v1)", re.I)
 MODE_RE = re.compile(r"\b(CBC|ECB|GCM|CTR|OFB|CFB|XTS)\b", re.I)
 COMPILED = [(re.compile(p, re.I), a, c, conf, hint) for p, a, c, conf, hint in RULES]
@@ -172,6 +216,16 @@ class SourceScanner(Scanner):
             m = rx.search(line)
             if not m:
                 continue
+            if algo in ("SHA-1", "SHA-2") and _lockfile_integrity(Path(fpath).name, line):
+                out.append(CryptoFinding(
+                    scanner=self.name, file_path=fpath, line=lineno,
+                    algorithm=algo, category="dependency",
+                    usage="dependency integrity metadata",
+                    rationale=("Dependency lockfile integrity hash; verifies vendored "
+                               "package bytes, not application cryptographic usage"),
+                    evidence=_evidence(line), confidence=min(conf, 0.4),
+                    is_mock=False))
+                continue
             name, size, mode, proto, lib = algo, None, "", "", ""
             if hint == "size" and m.lastindex:
                 try:
@@ -201,6 +255,15 @@ class SourceScanner(Scanner):
                                     protocol_version=proto, library=lib,
                                     evidence=_evidence(line), confidence=conf,
                                     is_mock=False))
+        keysize, bits = _keysize_hit(line)
+        if keysize:
+            out.append(CryptoFinding(
+                scanner=self.name, file_path=fpath, line=lineno,
+                algorithm="KEYSIZE", category="key", key_size=bits,
+                usage="key size declaration",
+                rationale=("Key-size value declared at a call site, assignment, or "
+                           "configuration entry; a bare property read is not counted"),
+                evidence=_evidence(line), confidence=0.5, is_mock=False))
         return out
 
     @staticmethod
