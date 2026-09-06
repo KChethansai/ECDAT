@@ -9,7 +9,9 @@ from pathlib import Path
 PACKAGE_DIR = Path(__file__).resolve().parent
 CLI_ROOT = PACKAGE_DIR.parent.parent  # sih26164/cli-agent/
 WORKSPACE_ROOT = CLI_ROOT.parent.parent  # <WORKSPACE_ROOT>/
-DEFAULT_VAULT = WORKSPACE_ROOT / "obsidian-vault"
+# Authoritative ECDAT vault (Phase 9 migration). Overridable via OBSIDIAN_VAULT_PATH.
+DEFAULT_VAULT = Path("/home/chethan/Documents/Vaults/SIH")
+LEGACY_VAULT = WORKSPACE_ROOT / "obsidian-vault"  # frozen reference; no new writes
 REGISTRY_FILE = CLI_ROOT / "config" / "agents.json"
 
 

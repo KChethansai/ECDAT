@@ -39,8 +39,8 @@ def _run_pipeline(target: Path, data_years: float, migration_years: float,
         sys.path.insert(0, backend)
     from app.pipeline import run_scan
 
-    return run_scan(target, ["source"], data_years, migration_years, qrqc_years_left,
-                    context_provenance)
+    return run_scan(target, ["source", "binary", "container", "dependency"],
+                    data_years, migration_years, qrqc_years_left, context_provenance)
 
 
 def _summary(target: Path, report: dict, context_notes: list[str],
@@ -57,7 +57,7 @@ def _summary(target: Path, report: dict, context_notes: list[str],
                     if report["summary"]["bySeverity"].get(level)), "low")
     relative_target = target.relative_to(WORKSPACE_ROOT)
     return "\n".join([
-        f"# ECDAT source scan — {datetime.now(timezone.utc).date().isoformat()}",
+        f"# ECDAT scan — {datetime.now(timezone.utc).date().isoformat()}",
         "",
         "## Durable summary",
         f"- Target: `{relative_target}`",
@@ -70,7 +70,7 @@ def _summary(target: Path, report: dict, context_notes: list[str],
         f"- Context consulted: {', '.join(context_notes) or 'none'}",
         f"- Bounded orchestration context: {context_chars} chars",
         "",
-        "No source evidence, cryptographic key material, or generated CBOM is retained here.",
+        "No file evidence, cryptographic key material, or generated CBOM is retained here.",
     ]) + "\n"
 
 
@@ -88,7 +88,7 @@ def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
                            {"available": True, "notes": len(context_notes),
                             "chars": len(analysis_context), "maxChars": 4000})
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S%fZ")
-    note = f"07-Sessions/Scans/{stamp}-source-scan.md"
+    note = f"07-Sessions/Scans/{stamp}-scan.md"
     mem.write(note, _summary(target, report, context_notes, len(analysis_context)))
     return {"report": report, "contextNotes": context_notes,
             "contextChars": len(analysis_context), "memoryNote": note}

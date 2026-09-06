@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from .pipeline import SCANNERS, run_scan
+from .pipeline import REAL_SCANNERS, SCANNERS, run_scan
 
 app = FastAPI(title="ECDAT", version="0.1.0")
 # Local demo dashboard only: same-origin in dev via Vite proxy; allow direct
@@ -33,7 +33,7 @@ WORKSPACE_ROOT = BASE.parents[2]
 
 class ScanRequest(BaseModel):
     target: str = Field(default="sample", description="'sample' or an existing workspace-contained path")
-    scanners: list[str] = Field(default_factory=lambda: ["source"])
+    scanners: list[str] = Field(default_factory=lambda: list(REAL_SCANNERS))
     data_years: float = Field(default=10.0, ge=0, le=100)
     migration_years: float = Field(default=3.0, ge=0, le=100)
     qrqc_years_left: float = Field(default=10.0, ge=0, le=100)

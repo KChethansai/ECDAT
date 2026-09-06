@@ -5,13 +5,13 @@ Session 2 (fresh) recovers it from the Vault. No in-memory state, no DB, no hard
 
 ```bash
 cd sih26164/cli-agent
-export OBSIDIAN_VAULT_PATH=/home/chethan/Projects/ECDAT/obsidian-vault
+export OBSIDIAN_VAULT_PATH=/home/chethan/Documents/Vaults/SIH
 
 # SESSION 1
 python scripts/agent init
 python scripts/agent run --agent codex --task "triage scan" -- --help   # real provider call example
 python scripts/agent memory set demo.qrqc "2035"
-# ^ durable knowledge now lives in obsidian-vault/00-Inbox/KV Store.md — end session.
+# ^ durable knowledge now lives in the SIH vault's 00-Inbox/KV Store.md — end session.
 
 # SESSION 2 (new shell / new day)
 python scripts/agent memory get demo.qrqc     # -> 2035, read from the .md file

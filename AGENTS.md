@@ -9,8 +9,9 @@ Plus a provider-neutral dev CLI (`sih26164/cli-agent`) orchestrating external co
 
 - `tools/` — external references. READ-ONLY. Never import into ECDAT code. Never copy
   implementation code from these repos (AGPL risk: fullstack-agent). Workflow/design reference only.
-- `obsidian-vault/` — **authoritative persistent AI/project memory** (Markdown). CLI reads/writes
+- Vault at `~/Documents/Vaults/SIH` — **authoritative persistent AI/project memory** (Markdown). CLI reads/writes
   only through `MemoryProvider`. Never a database. Vault path via `OBSIDIAN_VAULT_PATH`.
+  (`obsidian-vault/` in this workspace is a frozen pre-migration reference copy.)
 - `sih26164/cli-agent/` — orchestration layer (Python stdlib only). No LLM inside; shells out to
   `codex/claude/cursor-agent/agy` where installed. Voice/face/hands/webcam/Chrome are OUT OF SCOPE.
 - `sih26164/web-app/` — product. `backend/` FastAPI + `ai` scanner pipeline; `frontend/` Vite+React.

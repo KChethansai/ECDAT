@@ -1,0 +1,1 @@
+<project><dependencies><dependency><groupId>org.bouncycastle</groupId><artifactId>bcprov-jdk18</artifactId><version>1.77</version></dependency></dependencies></project>

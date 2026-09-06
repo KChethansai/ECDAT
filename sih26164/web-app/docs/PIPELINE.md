@@ -1,7 +1,7 @@
 # Scanner pipeline
 
 ```text
-target → SourceScanner (REAL) + Binary/Container/Library/HSM/Cloud (MOCK, same interface)
+target → SourceScanner (REAL) + BinaryScanner (REAL, static analysis) + ContainerScanner (REAL, static archives) + DependencyScanner (REAL, manifests) + HSM/Cloud (MOCK/FUTURE, same interface)
 → list[CryptoFinding] → risk.assess (Mosca) → recommend (PQC table) → cbom.build_cbom → GUI/report
 ```
 

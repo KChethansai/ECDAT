@@ -116,7 +116,7 @@ def cmd_scan(args) -> int:
         report = result["report"]
         severity = report["summary"]["bySeverity"]
         priorities = report["riskSummary"]["priorities"]
-        print("ECDAT source scan complete")
+        print("ECDAT scan complete")
         print(f"  findings: {report['summary']['real']} real, {report['summary']['mock']} mock")
         print("  severity: " + ", ".join(f"{name}={severity.get(name, 0)}"
                                            for name in ("critical", "high", "medium", "low")))
@@ -155,7 +155,7 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--task", required=True)
     rp.add_argument("provider_args", nargs=argparse.REMAINDER)
     rp.set_defaults(fn=cmd_run)
-    sp = sub.add_parser("scan", help="run the real ECDAT source scan pipeline")
+    sp = sub.add_parser("scan", help="run the real ECDAT scan pipeline (source + binary)")
     sp.add_argument("target")
     sp.add_argument("--data-years", type=float, default=10.0)
     sp.add_argument("--migration-years", type=float, default=3.0)

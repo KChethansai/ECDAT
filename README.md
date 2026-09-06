@@ -13,7 +13,7 @@ tools/                     # external references only (never imported by ECDAT c
 ├── get-shit-done/         # open-gsd/gsd-core (planning reference; upstream renamed)
 ├── everything-claude-code/# affaan-m/ECC (patterns reference)
 └── fullstack-agent/       # jaredrhod/fullstack-agent, AGPL — independent optional tooling
-obsidian-vault/            # authoritative persistent AI/project memory (Markdown only)
+obsidian-vault/            # frozen Phase 1–8 reference copy (authoritative vault now lives at ~/Documents/Vaults/SIH)
 sih26164/
 ├── cli-agent/             # developer-facing multi-agent orchestration (own git repo, Python stdlib)
 └── web-app/               # SIH product (own git repo, React/Vite + FastAPI)
@@ -23,7 +23,7 @@ sih26164/
 
 ## Memory rule
 
-- `obsidian-vault/` → persistent AI/project knowledge (Markdown).
+- Vault at `~/Documents/Vaults/SIH` → persistent AI/project knowledge (Markdown).
 - `git` → source + history.
 - App DB → runtime/domain data only (no DB in MVP; none exists).
 - Never store agent/project memory in a database, vector DB, or hidden JSON store.
@@ -51,6 +51,6 @@ npm install && npm run dev
 
 - `sih26164/cli-agent/README.md` + `AGENTS.md` — CLI usage, adapters, memory.
 - `sih26164/web-app/README.md` + `docs/` — product, scanner pipeline, API.
-- `obsidian-vault/` — durable knowledge (human-readable, Obsidian-compatible).
+- `~/Documents/Vaults/SIH` — durable knowledge (human-readable, Obsidian-compatible).
 - `docs/DEMO.md` (in cli-agent) — two-session persistent-memory demo.
 - `TOOLS.md` — external tooling verification report.

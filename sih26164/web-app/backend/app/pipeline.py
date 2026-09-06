@@ -8,13 +8,14 @@ from .cbom import build_cbom
 from .models import normalize_findings
 from .recommend import recommend
 from .risk import assess
-from .scanner import (BinaryScanner, CloudCryptoScanner, ContainerScanner, HSMScanner,
-                      LibraryScanner, SourceScanner)
+from .scanner import (BinaryScanner, CloudCryptoScanner, ContainerScanner,
+                      DependencyScanner, HSMScanner, SourceScanner)
 
 
 SCANNERS = {"source": SourceScanner(), "binary": BinaryScanner(),
-            "container": ContainerScanner(), "library": LibraryScanner(),
+            "container": ContainerScanner(), "dependency": DependencyScanner(),
             "hsm": HSMScanner(), "cloud": CloudCryptoScanner()}
+REAL_SCANNERS = ["source", "binary", "container", "dependency"]
 
 
 def run_scan(target: str | Path, scanners: list[str] | None = None,
@@ -24,7 +25,7 @@ def run_scan(target: str | Path, scanners: list[str] | None = None,
     root = Path(target).resolve()
     if not root.exists():
         raise FileNotFoundError(f"scan target missing: {target}")
-    selected = scanners or ["source"]
+    selected = scanners or list(REAL_SCANNERS)
     unknown = [name for name in selected if name not in SCANNERS]
     if unknown:
         raise ValueError(f"unknown scanners: {unknown}")

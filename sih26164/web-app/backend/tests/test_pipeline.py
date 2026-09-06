@@ -99,8 +99,18 @@ def test_normalization_removes_only_identical_hits():
 
 
 def test_mock_scanners_flagged():
-    findings = BinaryScanner().scan(SAMPLE)
+    from app.scanner import ContainerScanner, HSMScanner
+
+    assert ContainerScanner.is_mock is False  # REAL since Phase 9
+    findings = HSMScanner().scan(SAMPLE)
     assert findings and all(f.is_mock for f in findings)
+
+
+def test_binary_scanner_is_real_and_skips_text():
+    from app.scanner import BinaryScanner
+
+    assert BinaryScanner().scan(SAMPLE) == []  # text fixtures: nothing binary
+    assert BinaryScanner.is_mock is False
 
 
 def test_mosca_and_severity():
@@ -163,7 +173,7 @@ def test_api_scan_flow():
     assert body["report"]["summary"]["real"] >= 5
     assert body["report"]["summary"]["mock"] == 0
     assert c.get(f"/reports/{body['id']}").status_code == 200
-    m = c.post("/scans", json={"target": "sample", "scanners": ["source", "binary"]})
+    m = c.post("/scans", json={"target": "sample", "scanners": ["source", "hsm"]})
     assert m.json()["report"]["mockWarning"] is not None
 
 
@@ -265,4 +275,320 @@ def test_mock_missing_target_is_404():
 
     c = TestClient(app)
     assert c.post("/scans", json={"target": "/definitely/missing/xyz",
-                                  "scanners": ["binary"]}).status_code == 404
+                                  "scanners": ["container"]}).status_code == 404
+
+
+# --- Phase 8: binary artifact discovery ------------------------------------
+
+def _elf(*strings: bytes) -> bytes:
+    return b"\x7fELF\x02\x01\x01\x00" + b"\x00" * 8 + b"\x00" * 48 + b"\x00".join(strings)
+
+
+def _pe(*strings: bytes) -> bytes:
+    return b"MZ" + b"\x00" * 58 + b"\x00".join(strings) + b"PE\x00\x00" + b"\x00".join(strings)
+
+
+def _macho(*strings: bytes) -> bytes:
+    return b"\xcf\xfa\xed\xfe" + b"\x00" * 12 + b"\x00".join(strings)
+
+
+def test_binary_format_detection_and_evidence_tiers(tmp_path):
+    from app.scanner import BinaryScanner
+
+    target = tmp_path / "lib.bin"
+    target.write_bytes(_elf(b"libcrypto.so.3", b"EVP_aes_256_gcm", b"RSA-2048", b"TLSv1.3"))
+    findings = BinaryScanner().scan(target)
+    assert findings and all(f.scanner == "binary" and f.is_mock is False for f in findings)
+    by_usage = {f.usage for f in findings}
+    assert {"binary library reference", "binary symbol reference",
+            "binary string reference"} <= by_usage
+    lib = next(f for f in findings if f.library == "libcrypto.so.3")
+    assert lib.algorithm == "OpenSSL" and lib.confidence == 0.8
+    rsa = next(f for f in findings if f.algorithm == "RSA" and f.usage == "binary string reference")
+    assert rsa.key_size == 2048 and "does not prove runtime" in rsa.rationale
+    assert all(len(f.evidence) <= 160 and "\n" not in f.evidence for f in findings)
+
+
+def test_binary_pe_and_macho_formats(tmp_path):
+    from app.scanner import BinaryScanner
+
+    pe = tmp_path / "a.dll"
+    pe.write_bytes(_pe(b"bcrypt.dll", b"BCryptEncrypt", b"AES-256-GCM"))
+    macho = tmp_path / "b.dylib"
+    macho.write_bytes(_macho(b"libssl.dylib", b"TLSv1.2"))
+    assert any(f.library == "bcrypt.dll" for f in BinaryScanner().scan(pe))
+    assert any(f.algorithm == "TLS" for f in BinaryScanner().scan(macho))
+
+
+def test_binary_unsupported_truncated_oversized_and_missing(tmp_path):
+    from app.scanner import BinaryScanner
+    from app.scanner.binary_scanner import MAX_STRINGS
+    from app.scanner.source_scanner import MAX_FILE_BYTES
+
+    script = tmp_path / "run.sh"
+    script.write_text("#!/bin/sh\necho RSA-2048\n")
+    assert BinaryScanner().scan(script) == []  # magic-gated: text is source's job
+    truncated = tmp_path / "cut.bin"
+    truncated.write_bytes(b"\x7fE")
+    assert BinaryScanner().scan(truncated) == []
+    big = tmp_path / "big.bin"
+    with open(big, "wb") as fh:
+        fh.write(b"\x7fELF" + b"\x00" * MAX_FILE_BYTES)
+    assert BinaryScanner().scan(big) == []
+    assert MAX_STRINGS > 0  # extraction bound exists (see extract_strings)
+    try:
+        BinaryScanner().scan(tmp_path / "missing.bin")
+    except FileNotFoundError:
+        pass
+    else:
+        raise AssertionError("expected FileNotFoundError")
+
+
+def test_binary_results_are_deterministic_and_deduped(tmp_path):
+    from app.scanner import BinaryScanner
+
+    target = tmp_path / "dup.bin"
+    target.write_bytes(_elf(b"libcrypto.so.3", b"libcrypto.so.3", b"EVP_aes_256_gcm"))
+    first = [f.to_dict() for f in BinaryScanner().scan(target)]
+    second = [f.to_dict() for f in BinaryScanner().scan(target)]
+    assert first == second  # repeated scans reproduce, including ids
+    libs = [f for f in first if f["library"] == "libcrypto.so.3"]
+    assert len(libs) == 1  # repeated strings collapse; distinct evidence stays
+
+
+def test_binary_embedded_certificate_and_key_safety(tmp_path):
+    from app.scanner import BinaryScanner
+
+    pem = (SAMPLE.parent / "phase6" / "certificate.pem").read_text()
+    blob = tmp_path / "with-cert.bin"
+    blob.write_bytes(b"\x7fELF" + b"\x00" * 60 + pem.encode() + b"\x00PRIVATE BODY")
+    findings = BinaryScanner().scan(blob)
+    cert = next(f for f in findings if f.usage == "certificate metadata")
+    assert cert.algorithm == "RSA" and cert.key_size == 2048 and cert.expires_at
+    assert "PRIVATE BODY" not in " ".join(f.evidence for f in findings)
+
+    key_blob = tmp_path / "with-key.bin"
+    key_blob.write_bytes(b"\x7fELF" + b"\x00" * 60 +
+                         b"-----BEGIN PRIVATE KEY-----\nSECRET-BYTES\n-----END PRIVATE KEY-----")
+    for finding in BinaryScanner().scan(key_blob):
+        assert "SECRET-BYTES" not in finding.evidence
+
+
+def test_binary_flows_through_shared_pipeline_and_cbom(tmp_path):
+    import json
+
+    from app.pipeline import run_scan
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "app.py").write_text('hashlib.md5(b"x")\n')
+    (repo / "lib.bin").write_bytes(_elf(b"libcrypto.so.3", b"RSA-2048"))
+    report = run_scan(repo, ["source", "binary"])
+    scanners = {c["scanner"] for c in report["components"]}
+    assert {"source", "binary"} <= scanners
+    assert report["summary"]["mock"] == 0 and report["mockWarning"] is None
+    for component in report["components"]:
+        assert component["priority"] in ("P0", "P1", "P2", "P3")
+        assert component["rationale"] and component["recommendation"]["recommend"]
+    assert "binary" in report["metadata"]["scannerSources"]
+    json.dumps(report)
+
+
+def test_api_default_scanners_cover_source_and_binary():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    body = TestClient(app).post("/scans", json={"target": "sample"}).json()["report"]
+    assert body["metadata"]["scannerSources"] == ["binary", "container", "dependency", "source"]
+
+
+# --- Phase 9: container + dependency discovery ------------------------------
+
+def _layer(member_files: list[tuple[str, bytes]]) -> bytes:
+    import io
+    import tarfile
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        for name, data in member_files:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mtime = 0
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _image_tar(layers: list[bytes], env: list[str] | None = None) -> bytes:
+    import io
+    import json as _json
+    import tarfile
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        entries = [{"Config": "config.json", "RepoTags": ["t:latest"],
+                    "Layers": [f"layer{i}.tar" for i in range(len(layers))]}]
+        config = {"config": {"Env": env or []}}
+        for name, data in ([("manifest.json", _json.dumps(entries).encode()),
+                            ("config.json", _json.dumps(config).encode())]
+                           + [(f"layer{i}.tar", layer) for i, layer in enumerate(layers)]):
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mtime = 0
+            tar.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def test_container_image_tar_finds_config_layers_and_certs(tmp_path):
+    from app.scanner import ContainerScanner
+
+    cert = (SAMPLE.parent / "phase6" / "certificate.pem").read_bytes()
+    image = tmp_path / "image.tar"
+    image.write_bytes(_image_tar(
+        [_layer([("etc/ssl/openssl.cnf", b"CipherString = DEFAULT\nTLSv1.2\n"),
+                 ("app/requirements.txt", b"cryptography==42.0\n"),
+                 ("etc/ssl/certs/ca.crt", cert)])],
+        env=["APP_ENV=demo", "DB_PASSWORD=s3cret"]))
+    findings = ContainerScanner().scan(image)
+    assert findings and all(f.scanner == "container" and not f.is_mock for f in findings)
+    usages = {f.usage for f in findings}
+    assert {"container config reference", "container file reference",
+            "certificate metadata"} <= usages
+    secret = next(f for f in findings if f.algorithm == "ENV-SECRET")
+    assert "DB_PASSWORD" in secret.evidence and "s3cret" not in secret.evidence
+    assert all(len(f.evidence) <= 160 for f in findings)
+    assert ContainerScanner.is_mock is False
+
+
+def test_container_embedded_binary_and_dockerfile(tmp_path):
+    from app.scanner import ContainerScanner
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "Dockerfile").write_text(
+        "FROM python:3.14\nRUN apt-get install -y openssl libssl3\n"
+        "COPY tls/server.key /etc/ssl/private/\n")
+    image = tmp_path / "with-bin.tar"
+    image.write_bytes(_image_tar(
+        [_layer([("usr/lib/libx.so", b"\x7fELF" + b"\x00" * 60 + b"libcrypto.so.3")])]))
+    dockerfile_hits = ContainerScanner().scan(repo)
+    assert any(f.algorithm == "OpenSSL" for f in dockerfile_hits)
+    assert any(f.algorithm == "KEYFILE" for f in dockerfile_hits)
+    binary_hits = ContainerScanner().scan(image)
+    assert any(f.usage == "container binary reference" and f.library == "libcrypto.so.3"
+               for f in binary_hits)
+
+
+def test_container_attacks_fail_safely(tmp_path):
+    import io
+    import tarfile
+
+    from app.scanner import ContainerScanner
+
+    evil = tmp_path / "evil.tar"
+    with tarfile.open(evil, mode="w") as tar:
+        for name in ("../../pwned", "/abs", "link"):
+            info = tarfile.TarInfo(name)
+            info.type = tarfile.SYMTYPE if name == "link" else tarfile.REGTYPE
+            info.linkname = "/etc/passwd" if name == "link" else ""
+            data = b"RSA-2048\n"
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+        payload = tmp_path / "sentinel"
+        assert not payload.exists()
+        ContainerScanner().scan(evil)
+        assert not payload.exists()  # nothing extracted, nothing executed
+
+    garbage = tmp_path / "garbage.tar"
+    garbage.write_bytes(b"\x00" * 2048)
+    assert ContainerScanner().scan(garbage) == []
+    (tmp_path / "plain.txt").write_text("hello\n")
+    assert ContainerScanner().scan(tmp_path / "plain.txt") == []
+
+
+def test_container_results_deterministic(tmp_path):
+    from app.scanner import ContainerScanner
+
+    image = tmp_path / "image.tar"
+    image.write_bytes(_image_tar(
+        [_layer([("etc/ssl/openssl.cnf", b"TLSv1.2\n")])], env=["A=1"]))
+    first = [f.to_dict() for f in ContainerScanner().scan(image)]
+    second = [f.to_dict() for f in ContainerScanner().scan(image)]
+    assert first == second and first
+
+
+def test_dependency_manifests_across_ecosystems(tmp_path):
+    from app.scanner import DependencyScanner
+
+    (tmp_path / "requirements.txt").write_text("cryptography>=42,<43\nrequests==2.31\n")
+    (tmp_path / "package.json").write_text('{"dependencies": {"jsonwebtoken": "^9.0"}}')
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\ndependencies = ["pycryptodome==3.20"]\n')
+    (tmp_path / "Cargo.toml").write_text('[dependencies]\nring = "0.17"\n')
+    (tmp_path / "go.mod").write_text("module x\n\ngo 1.21\nrequire golang.org/x/crypto v0.17.0\n")
+    (tmp_path / "pom.xml").write_text(
+        "<project><dependencies><dependency><artifactId>bcprov-jdk18</artifactId>"
+        "<version>1.77</version></dependency></dependencies></project>")
+    (tmp_path / "build.gradle").write_text('implementation "org.bouncycastle:bcprov-jdk18:1.77"\n')
+    findings = DependencyScanner().scan(tmp_path)
+    assert findings and all(f.scanner == "dependency" and not f.is_mock for f in findings)
+    versions = {(f.library, f.evidence) for f in findings}
+    assert any("cryptography" in lib and "42" in ev for lib, ev in versions)
+    assert any("jsonwebtoken" in lib and "9.0" in ev for lib, ev in versions)
+    assert any("bcprov-jdk18" in lib and "1.77" in ev for lib, ev in versions)
+    assert all(f.usage == "dependency reference" and f.category == "dependency"
+               for f in findings)
+    assert DependencyScanner.is_mock is False
+
+
+def test_dependency_false_positives_and_malformed_input(tmp_path):
+    from app.scanner import DependencyScanner
+
+    (tmp_path / "requirements.txt").write_text(
+        "authlib==1.0\nsecure-utils==2.0\ncryptography-vectors==42.0\n")
+    assert DependencyScanner().scan(tmp_path) == []  # substrings are not evidence
+    bad = tmp_path / "bad"
+    bad.mkdir()
+    (bad / "package.json").write_text("{not json")
+    (bad / "pom.xml").write_text("<project><oops>")
+    (bad / "notes.txt").write_text("cryptography\n")
+    assert DependencyScanner().scan(bad) == []
+
+
+def test_dependency_requirements_includes_followed_safely(tmp_path):
+    from app.scanner import DependencyScanner
+
+    (tmp_path / "requirements.txt").write_text("-r extra.txt\nflask==3.0\n")
+    (tmp_path / "extra.txt").write_text("bcrypt==4.1\n-r requirements.txt\n")  # cycle
+    findings = DependencyScanner().scan(tmp_path / "requirements.txt")
+    assert any(f.library == "bcrypt" for f in findings)
+
+
+def test_full_pipeline_covers_all_real_scanners(tmp_path):
+    import json
+
+    from app.pipeline import run_scan
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "app.py").write_text('hashlib.md5(b"x")\n')
+    (repo / "lib.bin").write_bytes(_elf(b"libcrypto.so.3"))
+    (repo / "Dockerfile").write_text("FROM x\nRUN apt-get install -y openssl\n")
+    (repo / "requirements.txt").write_text("cryptography==42.0\n")
+    report = run_scan(repo, None)  # defaults: all REAL scanners
+    assert {c["scanner"] for c in report["components"]} == {"source", "binary", "container",
+                                                            "dependency"}
+    assert report["summary"]["mock"] == 0 and report["mockWarning"] is None
+    for component in report["components"]:
+        assert component["priority"] in ("P0", "P1", "P2", "P3")
+        assert component["rationale"] and component["recommendation"]["recommend"]
+    json.dumps(report)
+
+
+def test_api_default_scanners_cover_all_real_scanners():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    body = TestClient(app).post("/scans", json={"target": "sample"}).json()["report"]
+    assert body["metadata"]["scannerSources"] == ["binary", "container", "dependency", "source"]

@@ -18,6 +18,6 @@ python scripts/agent run --agent codex --task "..." -- <provider's own args>
 python scripts/agent verify
 ```
 
-Vault: `OBSIDIAN_VAULT_PATH` env, or `--vault`, or default `../../obsidian-vault/`.
+Vault: `OBSIDIAN_VAULT_PATH` env, or `--vault`, or default `/home/chethan/Documents/Vaults/SIH`.
 `src/agent/` mirrors the spec (`cli`, `configuration→config`, `memory`, `context`,
 `registry`, `adapters`, `orchestration`). Full layout rationale + demo: `docs/DEMO.md`.

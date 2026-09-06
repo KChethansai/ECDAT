@@ -6,4 +6,4 @@
 4. CLI agent with Vault memory + adapter registry (foundation for dev workflow).
 5. Two-process persistent-memory demo passing.
 
-Out: real binary/container forensics, HSM/cloud connectors (interfaces + mocks only).
+Out: real container forensics, HSM/cloud connectors (interfaces + mocks only).

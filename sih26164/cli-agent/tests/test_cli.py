@@ -73,7 +73,7 @@ def test_scan_summary_output(monkeypatch, tmp_path, capsys):
     sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
     assert _run(monkeypatch, tmp_path, "scan", str(sample), "--summary") == 0
     output = capsys.readouterr().out
-    assert "ECDAT source scan complete" in output
+    assert "ECDAT scan complete" in output
     assert "severity:" in output and "priority:" in output
     assert "durable summary:" in output and "CBOM-style report:" in output
 
@@ -82,3 +82,25 @@ def test_scan_rejects_invalid_risk_horizons(monkeypatch, tmp_path, capsys):
     sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
     assert _run(monkeypatch, tmp_path, "scan", str(sample), "--data-years", "-1") == 2
     assert "between 0 and 100" in capsys.readouterr().err
+
+
+def test_scan_discovers_binary_provenance(monkeypatch, tmp_path, capsys):
+    binary = (WORKSPACE_ROOT / "sih26164" / "web-app" / "backend"
+              / "samples" / "binaries" / "openssl-linked-demo.bin")
+    assert _run(monkeypatch, tmp_path, "scan", str(binary)) == 0
+    report = json.loads(capsys.readouterr().out)["report"]
+    rows = [row for row in report["components"] if row["scanner"] == "binary"]
+    assert rows and all(row["is_mock"] is False for row in rows)
+    assert any(row["library"] == "libcrypto.so.3" and row["priority"] in ("P0", "P1", "P2", "P3")
+               and "ML-KEM" not in row["recommendation"]["recommend"]  # library: honest guidance
+               for row in rows)
+    assert report["summary"]["mock"] == 0
+
+
+def test_scan_covers_all_real_scanner_provenances(monkeypatch, tmp_path, capsys):
+    samples = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples"
+    assert _run(monkeypatch, tmp_path, "scan", str(samples)) == 0
+    report = json.loads(capsys.readouterr().out)["report"]
+    assert {"source", "binary", "container", "dependency"} <= {
+        row["scanner"] for row in report["components"]}
+    assert report["summary"]["mock"] == 0

@@ -1,0 +1,3 @@
+[project]
+name = "demo"
+dependencies = ["pycryptodome==3.20.0", "flask"]
