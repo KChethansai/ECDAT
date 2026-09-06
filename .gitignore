@@ -1,0 +1,24 @@
+# ECDAT workspace — single-repo snapshot (see AGENTS.md for directory responsibilities)
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+# Node / frontend build
+node_modules/
+frontend/dist/
+# Secrets & local env (never commit; `.env.example` files are tracked)
+.env
+*.pem
+!sih26164/web-app/backend/samples/**/*.pem
+*.key
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Local-only caches
+*.log
