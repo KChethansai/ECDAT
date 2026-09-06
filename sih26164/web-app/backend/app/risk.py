@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 QUANTUM_VULNERABLE = {"RSA", "DSA", "DH", "ECDSA", "ECDH", "ECC"}
 WEAK_CLASSICAL = {"DES", "3DES", "RC4", "MD5", "SHA-1", "SSL", "TLS1.0", "TLS1.1", "Blowfish"}
 SHORT_RSA_BITS = 2048  # < 2048 is classically weak regardless of quantum
@@ -10,6 +12,24 @@ SHORT_RSA_BITS = 2048  # < 2048 is classically weak regardless of quantum
 # exposure is tracked for asymmetric + weak-classical findings. Revisit with policy input.
 MOSCA_EXEMPT = {"AES", "SHA-2", "SHA-3", "KDF", "STDLIB", "PyCA", "JCA", "WebCrypto",
                 "NaCl/PGP", "OpenSSL", "HMAC"}
+
+
+def canon(algorithm: str) -> str:
+    """Family-level canonical key so SHA-256 links SHA-2 evidence, etc.
+
+    Used ONLY for correlation/inventory grouping. Risk and recommendations keep
+    using base_algorithm unchanged.
+    """
+    base = base_algorithm(algorithm)
+    if re.fullmatch(r"SHA[-_ ]?(224|256|384|512)", base):
+        return "SHA-2"
+    if base.startswith("HMAC"):
+        return "HMAC"
+    if base in ("PBKDF2", "KDF"):
+        return "KDF"
+    if base.startswith("TLS"):
+        return "TLS"
+    return base
 
 
 def base_algorithm(name: str) -> str:

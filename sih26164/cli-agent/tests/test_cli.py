@@ -75,6 +75,7 @@ def test_scan_summary_output(monkeypatch, tmp_path, capsys):
     output = capsys.readouterr().out
     assert "ECDAT scan complete" in output
     assert "severity:" in output and "priority:" in output
+    assert "migration:" in output and "MIGRATION_REQUIRED" in output
     assert "durable summary:" in output and "CBOM-style report:" in output
 
 

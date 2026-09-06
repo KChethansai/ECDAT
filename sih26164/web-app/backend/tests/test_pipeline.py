@@ -762,3 +762,121 @@ def test_correlation_matches_families_not_spellings():
     correlate(rows)
     assert rows[1]["correlation"]["supports"] == ["s1"]
     assert "id" not in rows[0] or "correlation" not in rows[0]
+
+
+# --- Phase 12: unified intelligence ------------------------------------------
+
+def _rows():
+    return [
+        {"id": "a1", "scanner": "source", "algorithm": "RSA", "category": "asymmetric",
+         "file_path": "tls.conf", "line": 3, "key_size": 2048, "curve": "", "mode": "",
+         "protocol_version": "", "library": "", "usage": "direct", "confidence": 0.85,
+         "severity": "high", "priority": "P1", "is_mock": False},
+        {"id": "a2", "scanner": "dependency", "algorithm": "OpenSSL", "category": "library",
+         "file_path": "requirements.txt", "line": 0, "key_size": None, "curve": "",
+         "mode": "", "protocol_version": "", "library": "openssl", "usage": "dependency reference",
+         "confidence": 0.8, "severity": "low", "priority": "P3", "is_mock": False},
+        {"id": "a3", "scanner": "binary", "algorithm": "RSA-2048", "category": "asymmetric",
+         "file_path": "lib.bin", "line": 0, "key_size": 2048, "curve": "", "mode": "",
+         "protocol_version": "", "library": "", "usage": "binary string reference",
+         "confidence": 0.55, "severity": "high", "priority": "P1", "is_mock": False},
+    ]
+
+
+def test_strength_is_qualitative_not_probabilistic():
+    from app.intelligence import strength
+
+    assert strength({"usage": "runtime observation", "confidence": 0.85}) == "HIGH"
+    assert strength({"usage": "certificate metadata", "confidence": 0.95}) == "HIGH"
+    assert strength({"usage": "binary string reference", "confidence": 0.55}) == "LOW"
+    assert strength({"usage": "direct", "confidence": 0.9}) == "HIGH"
+    assert strength({"usage": "dependency reference", "confidence": 0.8}) == "MEDIUM"
+    assert strength({"usage": "direct", "confidence": "junk"}) == "LOW"
+
+
+def test_relate_preserves_evidence_and_marks_non_observation_honestly():
+    from app.intelligence import relate
+
+    rows = _rows()
+    relate(rows)
+    by_id = {r["id"]: r for r in rows}
+    # same family across scanners, evidence kept separate (never self-linked)
+    assert {"a3"} == {link["id"] for link in by_id["a1"]["related"]
+                      if link["relation"] == "same-family"}
+    # no runtime rows: nobody claims runtime observation, nobody claims absence
+    assert all("runtime-observed" not in {link["relation"] for link in r["related"]}
+               for r in rows)
+    assert all(len(r["related"]) <= 8 for r in rows)
+    again = _rows()
+    relate(again)
+    assert [r["related"] for r in rows] == [r["related"] for r in again]
+
+
+def test_inventory_and_graph_are_deterministic_and_json_safe():
+    import json as _json
+
+    from app.intelligence import build_graph, build_inventory
+
+    inventory = build_inventory(_rows())
+    assert [row["family"] for row in inventory] == ["OPENSSL", "RSA"]
+    rsa = next(row for row in inventory if row["family"] == "RSA")
+    assert rsa["scanners"] == ["binary", "source"] and rsa["findingCount"] == 2
+    assert rsa["priority"] == "P1" and rsa["runtimeObserved"] is False
+    assert rsa["recommendation"] and rsa["findingIds"] == ["a1", "a3"]
+    graph = build_graph(_rows())
+    kinds = {node["type"] for node in graph["nodes"]}
+    assert {"artifact", "algorithm", "finding", "library"} <= kinds
+    assert _json.dumps({"inventory": inventory, "graph": graph})
+
+
+# --- Phase 13: migration intelligence ------------------------------------------
+
+def test_migration_status_never_claims_completion():
+    from app.migration import build_plan, status_for
+
+    assert status_for({"id": "x", "severity": "critical", "priority": "P0"}, {}) == \
+        "MIGRATION_REQUIRED"
+    assert status_for({"id": "x", "severity": "low", "priority": "P3"}, {}) == "DISCOVERED"
+    assert status_for({"id": "x", "severity": "low", "priority": "P3"},
+                      {"x": "MIGRATION_IN_PROGRESS"}) == "MIGRATION_IN_PROGRESS"
+    try:
+        status_for({"id": "x", "severity": "low", "priority": "P3"}, {"x": "DONE"})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for unknown status")
+    plan = build_plan([], [], {"data_years": 10, "migration_years": 3, "qrqc_years_left": 10})
+    assert plan["workItems"] == [] and plan["statusCounts"] == {}
+
+
+def test_migration_plan_roadmap_and_work_items():
+    import json as _json
+
+    from app.migration import build_plan
+
+    rows = _rows()
+    for row in rows:
+        row.update({"rationale": "test reason",
+                    "recommendation": {"recommend": "do X", "notes": "n"}})
+    plan = build_plan(rows, [], {"data_years": 10, "migration_years": 3, "qrqc_years_left": 10})
+    assert plan["roadmap"]["Near-term"] and plan["roadmap"]["Monitor"]
+    rsa_item = next(item for item in plan["workItems"] if item["family"] == "RSA")
+    assert rsa_item["priority"] == "P1" and rsa_item["status"] == "MIGRATION_REQUIRED"
+    assert rsa_item["direction"] == recommend("RSA")["recommend"]  # real guidance, not test text
+    assert rsa_item["artifactCount"] == 2
+    assert any("unknown" in unknown for unknown in rsa_item["unknowns"])
+    assert "not a quantum-arrival prediction" in _json.dumps(plan)
+    assert _json.dumps(plan)
+
+
+def test_report_carries_intelligence_migration_and_contract():
+    import json as _json
+
+    from app.pipeline import run_scan
+
+    report = run_scan(SAMPLE, ["source"])
+    assert report["intelligence"]["inventory"] and report["intelligence"]["graph"]["nodes"]
+    assert report["migration"]["workItems"] and report["migration"]["roadmap"]["Immediate"]
+    assert all("migrationStatus" in c and "evidenceStrength" in c and "related" in c
+               for c in report["components"])
+    _json.dumps(report)

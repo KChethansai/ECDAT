@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from .cbom import build_cbom
+from .intelligence import build_graph, build_inventory, relate, strength
+from .migration import build_plan
 from .models import normalize_findings
 from .recommend import recommend
-from .risk import assess, base_algorithm
+from .risk import assess, canon as _canon
 from .scanner import (BinaryScanner, CloudScanner, ContainerScanner, DependencyScanner,
                       HSMScanner, RuntimeScanner, SourceScanner)
 from .scanner.runtime_scanner import RuntimeUnavailableError, TIMEOUT_SECS
@@ -18,24 +19,6 @@ SCANNERS = {"source": SourceScanner(), "binary": BinaryScanner(),
             "container": ContainerScanner(), "dependency": DependencyScanner(),
             "hsm": HSMScanner(), "cloud": CloudScanner(), "runtime": RuntimeScanner()}
 REAL_SCANNERS = ["source", "binary", "container", "dependency", "hsm", "cloud"]
-
-
-def _canon(algorithm: str) -> str:
-    """Correlation key: family-level match so SHA-256 links SHA-2 evidence, etc.
-
-    Used ONLY for static/runtime linking. Risk and recommendations keep using
-    base_algorithm unchanged.
-    """
-    base = base_algorithm(algorithm)
-    if re.fullmatch(r"SHA[-_ ]?(224|256|384|512)", base):
-        return "SHA-2"
-    if base.startswith("HMAC"):
-        return "HMAC"
-    if base in ("PBKDF2", "KDF"):
-        return "KDF"
-    if base.startswith("TLS"):
-        return "TLS"
-    return base
 
 
 def correlate(enriched: list[dict]) -> None:
@@ -62,11 +45,12 @@ def correlate(enriched: list[dict]) -> None:
 def run_scan(target: str | Path, scanners: list[str] | None = None,
              data_years: float = 10.0, migration_years: float = 3.0,
              qrqc_years_left: float = 10.0, context_provenance: dict | None = None,
-             runtime: bool = False) -> dict:
+             runtime: bool = False, status_overrides: dict[str, str] | None = None) -> dict:
     """Run discovery, risk, recommendations, and CBOM through one code path.
 
     `runtime` is explicit opt-in only: it executes the bundled first-party probe
     under timeout/isolation (see runtime_scanner). Static scans never execute.
+    `status_overrides` records caller-asserted migration states (validated).
     """
     root = Path(target).resolve()
     if not root.exists():
@@ -92,7 +76,15 @@ def run_scan(target: str | Path, scanners: list[str] | None = None,
     for finding in enriched:
         finding["recommendation"] = recommend(finding["algorithm"])
     correlate(enriched)
+    relate(enriched)
+    for finding in enriched:
+        finding["evidenceStrength"] = strength(finding)
+    inventory = build_inventory(enriched)
+    plan = build_plan(enriched, inventory,
+                      {"data_years": data_years, "migration_years": migration_years,
+                       "qrqc_years_left": qrqc_years_left}, status_overrides)
     sources = list(dict.fromkeys(selected))
     if runtime and runtime_provenance.get("available") and "runtime" not in sources:
         sources.append("runtime")
-    return build_cbom(str(root), enriched, context_provenance, sources, runtime_provenance)
+    return build_cbom(str(root), enriched, context_provenance, sources, runtime_provenance,
+                      {"inventory": inventory, "graph": build_graph(enriched)}, plan)

@@ -2,7 +2,7 @@
 
 ```text
 target → SourceScanner (REAL) + BinaryScanner (REAL, static analysis) + ContainerScanner (REAL, static archives) + DependencyScanner (REAL, manifests) + HSMScanner (REAL, config evidence) + CloudScanner (REAL, config evidence) [+ RuntimeScanner (REAL, explicit opt-in probe)]
-→ list[CryptoFinding] → risk.assess (Mosca) → recommend (PQC table) → cbom.build_cbom → GUI/report
+→ list[CryptoFinding] → risk.assess (Mosca) → recommend (PQC table) → correlate/relate → intelligence (inventory, strength, graph) → migration (status, work items, roadmap) → cbom.build_cbom → GUI/report
 ```
 
 ## Real coverage (SourceScanner)

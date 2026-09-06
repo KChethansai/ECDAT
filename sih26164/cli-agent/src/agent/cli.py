@@ -122,6 +122,10 @@ def cmd_scan(args) -> int:
                                            for name in ("critical", "high", "medium", "low")))
         print("  priority: " + ", ".join(f"{name}={priorities.get(name, 0)}"
                                            for name in ("P0", "P1", "P2", "P3")))
+        counts = report["migration"]["statusCounts"]
+        print("  migration: " + ", ".join(
+            f"{name}={counts.get(name, 0)}"
+            for name in ("MIGRATION_REQUIRED", "MIGRATION_PLANNED", "DISCOVERED")))
         runtime_prov = report["metadata"].get("runtimeProvenance", {})
         if args.runtime:
             if runtime_prov.get("available"):

@@ -10,7 +10,8 @@ VERSION = "0.2.0"
 
 def build_cbom(target: str, enriched: list[dict], context_provenance: dict | None = None,
                scanner_sources: list[str] | None = None,
-               runtime_provenance: dict | None = None) -> dict:
+               runtime_provenance: dict | None = None,
+               intelligence: dict | None = None, migration: dict | None = None) -> dict:
     mocks = sum(1 for f in enriched if f.get("is_mock"))
     by_sev: dict[str, int] = {}
     for f in enriched:
@@ -26,7 +27,7 @@ def build_cbom(target: str, enriched: list[dict], context_provenance: dict | Non
     exposed = sum(1 for f in enriched if f.get("mosca_exposed"))
     priorities = {level: sum(1 for f in enriched if f.get("priority") == level)
                   for level in ("P0", "P1", "P2", "P3")}
-    return {
+    report = {
         "bomFormat": "ECDAT-CBOM",
         "specVersion": "0.2",
         "reportType": "CBOM-style / CBOM-oriented (not independently standards-verified)",
@@ -46,3 +47,8 @@ def build_cbom(target: str, enriched: list[dict], context_provenance: dict | Non
                         if mocks else None),
         "components": enriched,
     }
+    if intelligence is not None:
+        report["intelligence"] = intelligence
+    if migration is not None:
+        report["migration"] = migration
+    return report

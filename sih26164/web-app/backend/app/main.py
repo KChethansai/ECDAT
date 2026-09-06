@@ -39,6 +39,8 @@ class ScanRequest(BaseModel):
     qrqc_years_left: float = Field(default=10.0, ge=0, le=100)
     runtime: bool = Field(default=False, description="explicit opt-in: run the controlled "
                           "runtime probe (bundled fixture only, bounded, isolated)")
+    status_overrides: dict[str, str] | None = Field(default=None, description="caller-recorded "
+                          "migration states by finding id (validated, never inferred)")
 
 
 @app.get("/health")
@@ -79,7 +81,8 @@ def create_scan(req: ScanRequest) -> dict:
         raise HTTPException(400, f"unknown scanners: {unknown}")
     try:
         report = run_scan(target, req.scanners, req.data_years, req.migration_years,
-                          req.qrqc_years_left, runtime=req.runtime)
+                          req.qrqc_years_left, runtime=req.runtime,
+                          status_overrides=req.status_overrides)
     except FileNotFoundError:
         raise HTTPException(404, f"scan target not found: {req.target}")
     except ValueError as exc:
