@@ -1,0 +1,9 @@
+[project]
+name = "ecdat-cli-agent"
+version = "0.1.0"
+description = "Provider-neutral multi-agent orchestration CLI for ECDAT (stdlib only)"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

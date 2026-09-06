@@ -1,0 +1,36 @@
+{
+  "agents": [
+    {
+      "name": "codex",
+      "provider": "openai",
+      "command": "codex",
+      "alternates": [],
+      "capabilities": ["run", "status"],
+      "notes": "OpenAI Codex CLI. Pass its own flags after `agent run --agent codex --`. Verify with `codex --help`."
+    },
+    {
+      "name": "claude",
+      "provider": "anthropic",
+      "command": "claude",
+      "alternates": [],
+      "capabilities": ["run", "status"],
+      "notes": "Claude Code. Pass its own flags after `agent run --agent claude --`. Verify with `claude --help`."
+    },
+    {
+      "name": "cursor",
+      "provider": "cursor",
+      "command": "cursor-agent",
+      "alternates": ["agent"],
+      "capabilities": ["run", "status"],
+      "notes": "Cursor agent CLI (limited adapter). No Cursor IDE required. Verify with `cursor-agent --help`."
+    },
+    {
+      "name": "antigravity",
+      "provider": "google",
+      "command": "agy",
+      "alternates": ["gemini"],
+      "capabilities": ["run", "status"],
+      "notes": "Antigravity/Gemini CLI (limited adapter). Verify with `agy --help`."
+    }
+  ]
+}
