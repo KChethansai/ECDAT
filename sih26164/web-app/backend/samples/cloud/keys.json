@@ -1,0 +1,5 @@
+{
+  "kms_key": "arn:aws:kms:us-east-1:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab",
+  "vault": "https://demo-vault.vault.azure.net/keys/demo-key/abc123",
+  "gcp": "projects/demo-proj/locations/us/keyRings/demo-ring/cryptoKeys/demo-key"
+}

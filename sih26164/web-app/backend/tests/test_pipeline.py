@@ -102,8 +102,7 @@ def test_mock_scanners_flagged():
     from app.scanner import ContainerScanner, HSMScanner
 
     assert ContainerScanner.is_mock is False  # REAL since Phase 9
-    findings = HSMScanner().scan(SAMPLE)
-    assert findings and all(f.is_mock for f in findings)
+    assert HSMScanner.is_mock is False  # REAL since Phase 10
 
 
 def test_binary_scanner_is_real_and_skips_text():
@@ -174,7 +173,7 @@ def test_api_scan_flow():
     assert body["report"]["summary"]["mock"] == 0
     assert c.get(f"/reports/{body['id']}").status_code == 200
     m = c.post("/scans", json={"target": "sample", "scanners": ["source", "hsm"]})
-    assert m.json()["report"]["mockWarning"] is not None
+    assert m.json()["report"]["mockWarning"] is None  # no mock scanners remain
 
 
 def test_api_and_shared_pipeline_produce_compatible_reports():
@@ -394,13 +393,7 @@ def test_binary_flows_through_shared_pipeline_and_cbom(tmp_path):
     json.dumps(report)
 
 
-def test_api_default_scanners_cover_source_and_binary():
-    from fastapi.testclient import TestClient
-
-    from app.main import app
-
-    body = TestClient(app).post("/scans", json={"target": "sample"}).json()["report"]
-    assert body["metadata"]["scannerSources"] == ["binary", "container", "dependency", "source"]
+# --- Phase 10: HSM + cloud configuration discovery --------------------------
 
 
 # --- Phase 9: container + dependency discovery ------------------------------
@@ -591,4 +584,181 @@ def test_api_default_scanners_cover_all_real_scanners():
     from app.main import app
 
     body = TestClient(app).post("/scans", json={"target": "sample"}).json()["report"]
-    assert body["metadata"]["scannerSources"] == ["binary", "container", "dependency", "source"]
+    assert body["metadata"]["scannerSources"] == ["binary", "cloud", "container",
+                                                      "dependency", "hsm", "source"]
+
+
+# --- Phase 10: HSM + cloud configuration discovery --------------------------
+
+def test_hsm_pkcs11_uri_module_and_vendor_evidence(tmp_path):
+    from app.scanner import HSMScanner
+
+    conf = tmp_path / "hsm.conf"
+    conf.write_text(
+        "pkcs11:token=ProdHSM;object=sign-key;type=private;pin-value=s3cret\n"
+        "PKCS11_MODULE=/usr/lib/opensc-pkcs11.so\n"
+        "SunPKCS11 slot\n"
+        "HSM_SLOT=3\n"
+        "thales Luna partition\n"
+        "just talking about lunch\n")
+    findings = HSMScanner().scan(conf)
+    assert findings and all(f.scanner == "hsm" and not f.is_mock for f in findings)
+    uri = next(f for f in findings if f.library == "PKCS#11 URI")
+    assert "ProdHSM" in uri.evidence and "s3cret" not in uri.evidence
+    assert "pin-value" not in uri.evidence
+    assert any(f.library == "/usr/lib/opensc-pkcs11.so" for f in findings)
+    assert not [f for f in findings if "lunch" in f.evidence]
+    assert HSMScanner.is_mock is False
+
+
+def test_hsm_missing_target_and_empty_dir(tmp_path):
+    from app.scanner import HSMScanner
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert HSMScanner().scan(empty) == []
+    try:
+        HSMScanner().scan(empty / "nope.conf")
+    except FileNotFoundError:
+        pass
+    else:
+        raise AssertionError("expected FileNotFoundError")
+
+
+def test_cloud_aws_azure_gcp_evidence_and_redaction(tmp_path):
+    from app.scanner import CloudScanner
+
+    infra = tmp_path / "main.tf"
+    infra.write_text(
+        'resource "aws_kms_key" "a" {}\n'
+        'key_id = "arn:aws:kms:us-east-1:123456789012:key/abcd"\n'
+        'vault = "https://v.vault.azure.net/keys/k/1"\n'
+        'gcp = "projects/p/locations/u/keyRings/r/cryptoKeys/k"\n'
+        'DB_PASSWORD = "hunter2"\n'
+        'policy = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"\n')
+    findings = CloudScanner().scan(infra)
+    assert findings and all(f.scanner == "cloud" and not f.is_mock for f in findings)
+    arn = next(f for f in findings if "arn:aws:kms" in f.evidence)
+    assert "****" in arn.evidence and "123456789012" not in arn.evidence
+    assert "hunter2" not in " ".join(f.evidence for f in findings)
+    assert {f.algorithm for f in findings} >= {"KMS", "KEYVAULT", "TLS"}
+    assert CloudScanner.is_mock is False
+
+
+def test_cloud_false_positives_and_malformed_input(tmp_path):
+    from app.scanner import CloudScanner
+
+    notes = tmp_path / "notes.md"
+    notes.write_text("ask aws support about the keyboard vault mural\n")
+    assert CloudScanner().scan(notes) == []
+    bad = tmp_path / "bad.json"
+    bad.write_text("{oops")
+    assert CloudScanner().scan(bad) == []
+
+
+def test_hsm_cloud_recommendations_are_inventory_guidance():
+    from app.recommend import recommend
+
+    for algo in ("PKCS11", "HSM", "KMS", "KEYVAULT", "CLOUDHSM", "ENV-SECRET", "TLS"):
+        rec = recommend(algo)
+        assert rec["recommend"] and rec["notes"] and rec["guidance"]
+    assert "ML-KEM" not in recommend("KMS")["recommend"]  # KMS is not a drop-in for PQC
+    assert "quantum-safe" not in recommend("HSM")["recommend"].lower()
+
+
+# --- Phase 11: controlled runtime discovery ----------------------------------
+
+def test_runtime_opt_in_and_static_default():
+    from app.pipeline import run_scan
+
+    static_only = run_scan(SAMPLE, ["source"])
+    assert [c for c in static_only["components"] if c["scanner"] == "runtime"] == []
+    assert static_only["metadata"]["runtimeProvenance"] == {"available": False}
+
+
+def test_runtime_probe_observes_fixture_and_correlates(tmp_path):
+    from app.pipeline import run_scan
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "app.py").write_text("import hashlib\nhashlib.sha256(b'x')\n")
+    report = run_scan(repo, None, runtime=True)
+    runtime_rows = [c for c in report["components"] if c["scanner"] == "runtime"]
+    assert len(runtime_rows) == 6  # the six fixture operations, no more no less
+    assert all(r["usage"] == "runtime observation" and not r["is_mock"] for r in runtime_rows)
+    assert all(r["priority"] in ("P0", "P1", "P2", "P3") and r["rationale"]
+               and r["recommendation"]["recommend"] for r in runtime_rows)
+    sha = next(r for r in runtime_rows if r["algorithm"] == "SHA-256")
+    assert sha["correlation"]["supports"]  # static hashlib/SHA-256 evidence linked
+    assert all(s != sha["id"] for s in sha["correlation"]["supports"])
+    assert report["metadata"]["runtimeProvenance"]["available"] is True
+    assert "runtime" in report["metadata"]["scannerSources"]
+    import json as _json
+    _json.dumps(report)
+
+
+def test_runtime_unavailable_degrades_gracefully(tmp_path):
+    from app.scanner.runtime_scanner import RuntimeScanner, RuntimeUnavailableError
+
+    missing = RuntimeScanner(probe=tmp_path / "nope.py")
+    try:
+        missing.scan(tmp_path)
+    except RuntimeUnavailableError:
+        pass
+    else:
+        raise AssertionError("expected RuntimeUnavailableError")
+    slow = tmp_path / "slow.py"
+    slow.write_text("import time\ntime.sleep(60)\n")
+    try:
+        RuntimeScanner(probe=slow, timeout=1).scan(tmp_path)
+    except RuntimeUnavailableError as exc:
+        assert "terminated" in str(exc)
+    else:
+        raise AssertionError("expected timeout termination")
+    # no lingering probe processes
+    import subprocess as _sp
+    leftovers = _sp.run(["pgrep", "-f", "slow.py"], capture_output=True, text=True)
+    assert leftovers.returncode != 0
+
+
+def test_runtime_redacts_secrets_and_ignores_noise(tmp_path):
+    from app.scanner.runtime_scanner import RuntimeScanner
+
+    noisy = tmp_path / "noisy.py"
+    noisy.write_text(
+        'print("ECDAT-TELEMETRY v=1 lib=hashlib algo=SHA-256 op=digest")\n'
+        'print("password=hunter2 token=abc secret=xyz")\n'
+        'print("garbage line")\n'
+        'print("ECDAT-TELEMETRY v=1 lib=x")\n')
+    findings = RuntimeScanner(probe=noisy).scan(tmp_path)
+    assert len(findings) == 1 and findings[0].algorithm == "SHA-256"
+    assert "hunter2" not in findings[0].evidence
+
+
+def test_runtime_api_requires_explicit_opt_in():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    default = client.post("/scans", json={"target": "sample"}).json()["report"]
+    assert [c for c in default["components"] if c["scanner"] == "runtime"] == []
+    opted = client.post("/scans", json={"target": "sample", "runtime": True}).json()["report"]
+    assert any(c["scanner"] == "runtime" for c in opted["components"])
+    assert opted["metadata"]["runtimeProvenance"]["available"] is True
+
+
+def test_correlation_matches_families_not_spellings():
+    from app.pipeline import _canon, correlate
+
+    assert _canon("SHA-256") == _canon("SHA-512") == _canon("SHA-2")
+    assert _canon("HMAC-SHA256") == _canon("HMAC")
+    assert _canon("PBKDF2") == _canon("KDF")
+    assert _canon("TLSv1.3") == _canon("TLS") == _canon("TLS1.2")
+    static = {"id": "s1", "scanner": "source", "algorithm": "SHA-2", "is_mock": False}
+    observed = {"id": "r1", "scanner": "runtime", "algorithm": "SHA-512",
+                "is_mock": False}
+    rows = [static, observed]
+    correlate(rows)
+    assert rows[1]["correlation"]["supports"] == ["s1"]
+    assert "id" not in rows[0] or "correlation" not in rows[0]

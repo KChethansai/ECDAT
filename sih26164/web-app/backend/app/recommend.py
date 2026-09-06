@@ -26,6 +26,20 @@ TABLE: dict[str, dict] = {
     "AES": {"recommend": "AES-256-GCM (double key length posture)", "notes": "Grover halves effective strength; 256-bit stays safe."},
     "SHA-2": {"recommend": "SHA-384/SHA-512 or SHA-3", "notes": "Grover margin; prefer 384+ outputs for longevity."},
     "PEM": {"recommend": "Re-issue with PQC/hybrid certs (pilot CA)", "notes": "Inventory first; rotate short-lived."},
+    "PKCS11": {"recommend": "Inventory HSM-backed keys; confirm PQC/hybrid support with the HSM vendor",
+               "notes": "Hardware protects key material but not the algorithm: RSA/ECC behind PKCS#11 still needs a migration plan. Pilot vendor-supported hybrids; ML-KEM does not drop into every HSM."},
+    "HSM": {"recommend": "Inventory HSM integrations; plan PQC migration retaining hardware-backed protection",
+            "notes": "Evaluate vendor PQC roadmap first; verify interoperability before any migration pilot."},
+    "KMS": {"recommend": "Inventory managed keys; verify provider PQC roadmap and pilot hybrid where supported",
+            "notes": "Cloud KMS does not automatically mean quantum-safe: check which algorithms back each key and whether the provider supports hybrid key establishment."},
+    "KEYVAULT": {"recommend": "Inventory vault keys/certs; verify provider PQC roadmap and pilot hybrid where supported",
+                 "notes": "Same posture as KMS: managed service still needs per-key algorithm inventory."},
+    "CLOUDHSM": {"recommend": "Inventory CloudHSM-backed keys; plan PQC migration retaining hardware-backed protection",
+                 "notes": "Evaluate provider PQC support; verify before piloting."},
+    "TLS": {"recommend": "TLS 1.3 posture + hybrid-KEX pilot",
+            "notes": "Confirm version and cipher suites; negotiate hybrid key exchange where peers allow."},
+    "ENV-SECRET": {"recommend": "Remove baked-in secret reference; use a secret manager with rotation",
+                   "notes": "Hygiene finding, not a primitive: no crypto migration applies."},
 }
 
 DEFAULT = {"recommend": "Review manually", "notes": "No canned mapping; assess exposure individually."}

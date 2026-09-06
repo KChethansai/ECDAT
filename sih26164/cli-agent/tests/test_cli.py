@@ -84,6 +84,16 @@ def test_scan_rejects_invalid_risk_horizons(monkeypatch, tmp_path, capsys):
     assert "between 0 and 100" in capsys.readouterr().err
 
 
+def test_scan_runtime_requires_explicit_opt_in(monkeypatch, tmp_path, capsys):
+    sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
+    assert _run(monkeypatch, tmp_path, "scan", str(sample)) == 0
+    static_only = json.loads(capsys.readouterr().out)["report"]
+    assert [c for c in static_only["components"] if c["scanner"] == "runtime"] == []
+    assert _run(monkeypatch, tmp_path, "scan", str(sample), "--runtime", "--summary") == 0
+    output = capsys.readouterr().out
+    assert "runtime: 6 observations (controlled opt-in probe)" in output
+
+
 def test_scan_discovers_binary_provenance(monkeypatch, tmp_path, capsys):
     binary = (WORKSPACE_ROOT / "sih26164" / "web-app" / "backend"
               / "samples" / "binaries" / "openssl-linked-demo.bin")
@@ -101,6 +111,6 @@ def test_scan_covers_all_real_scanner_provenances(monkeypatch, tmp_path, capsys)
     samples = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples"
     assert _run(monkeypatch, tmp_path, "scan", str(samples)) == 0
     report = json.loads(capsys.readouterr().out)["report"]
-    assert {"source", "binary", "container", "dependency"} <= {
+    assert {"source", "binary", "container", "dependency", "hsm", "cloud"} <= {
         row["scanner"] for row in report["components"]}
     assert report["summary"]["mock"] == 0

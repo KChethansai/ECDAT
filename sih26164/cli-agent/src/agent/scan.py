@@ -33,14 +33,16 @@ def validate_target(raw_target: str) -> Path:
 
 
 def _run_pipeline(target: Path, data_years: float, migration_years: float,
-                  qrqc_years_left: float, context_provenance: dict | None = None) -> dict:
+                  qrqc_years_left: float, context_provenance: dict | None = None,
+                  runtime: bool = False) -> dict:
     backend = str(BACKEND_ROOT)
     if backend not in sys.path:
         sys.path.insert(0, backend)
-    from app.pipeline import run_scan
+    from app.pipeline import REAL_SCANNERS, run_scan
 
-    return run_scan(target, ["source", "binary", "container", "dependency"],
-                    data_years, migration_years, qrqc_years_left, context_provenance)
+    return run_scan(target, list(REAL_SCANNERS),
+                    data_years, migration_years, qrqc_years_left, context_provenance,
+                    runtime=runtime)
 
 
 def _summary(target: Path, report: dict, context_notes: list[str],
@@ -75,8 +77,13 @@ def _summary(target: Path, report: dict, context_notes: list[str],
 
 
 def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
-         migration_years: float = 3.0, qrqc_years_left: float = 10.0) -> dict:
-    """Load bounded vault context, run the real pipeline, and persist durable knowledge."""
+         migration_years: float = 3.0, qrqc_years_left: float = 10.0,
+         runtime: bool = False) -> dict:
+    """Load bounded vault context, run the real pipeline, and persist durable knowledge.
+
+    `runtime` is explicit opt-in: it executes ONLY the bundled first-party probe
+    under timeout/isolation. Static scans never execute anything.
+    """
     if any(not 0 <= value <= 100 for value in (data_years, migration_years, qrqc_years_left)):
         raise ValueError("risk horizons must be between 0 and 100")
     target = validate_target(raw_target)
@@ -86,7 +93,8 @@ def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
     context_notes = [rel for rel, _ in hits]
     report = _run_pipeline(target, data_years, migration_years, qrqc_years_left,
                            {"available": True, "notes": len(context_notes),
-                            "chars": len(analysis_context), "maxChars": 4000})
+                            "chars": len(analysis_context), "maxChars": 4000},
+                           runtime=runtime)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S%fZ")
     note = f"07-Sessions/Scans/{stamp}-scan.md"
     mem.write(note, _summary(target, report, context_notes, len(analysis_context)))

@@ -9,7 +9,8 @@ VERSION = "0.2.0"
 
 
 def build_cbom(target: str, enriched: list[dict], context_provenance: dict | None = None,
-               scanner_sources: list[str] | None = None) -> dict:
+               scanner_sources: list[str] | None = None,
+               runtime_provenance: dict | None = None) -> dict:
     mocks = sum(1 for f in enriched if f.get("is_mock"))
     by_sev: dict[str, int] = {}
     for f in enriched:
@@ -36,7 +37,8 @@ def build_cbom(target: str, enriched: list[dict], context_provenance: dict | Non
                     "bySeverity": by_sev},
         "metadata": {"scanTarget": target, "findingCount": len(enriched),
                      "scannerSources": scanners, "algorithmInventory": algorithms,
-                     "contextProvenance": context_provenance or {"available": False}},
+                     "contextProvenance": context_provenance or {"available": False},
+                     "runtimeProvenance": runtime_provenance or {"available": False}},
         "riskSummary": {"moscaExposed": exposed, "priorities": priorities,
                         "note": "Priorities are deterministic migration ordering, not QRQC prediction."},
         "recommendations": recommendations,

@@ -15,7 +15,13 @@ backend/
                           # layouts, Dockerfiles — streamed, never executed (is_mock=False)
       dependency_scanner.py # REAL manifest analysis: requirements/pyproject/
                           # package.json/lockfiles/pom.xml/Gradle/Cargo/go.mod (is_mock=False)
-      mocks.py            # HSM/Cloud — same interface, is_mock=True
+      hsm_scanner.py      # REAL HSM integration evidence: PKCS#11 URIs (redacted),
+                          # provider modules, vendor refs — static only, never connects
+      cloud_scanner.py    # REAL cloud crypto config: KMS/KeyVault/GCP refs, IaC —
+                          # identifiers only, credentials never retained (is_mock=False)
+      runtime_scanner.py  # REAL controlled runtime probe: explicit opt-in only,
+                          # bundled fixture, timeout+isolation, no arbitrary execution
+      mocks.py            # base for future placeholder scanners (is_mock=True)
     risk.py        # Mosca inequality + severity
     recommend.py   # PQC/hybrid table
     cbom.py        # standardized JSON report (mock findings badged)

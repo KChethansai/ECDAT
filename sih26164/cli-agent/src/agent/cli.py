@@ -105,7 +105,7 @@ def cmd_verify(args) -> int:
 def cmd_scan(args) -> int:
     try:
         result = scan.scan(_mem(args), args.target, args.data_years, args.migration_years,
-                           args.qrqc_years_left)
+                           args.qrqc_years_left, runtime=args.runtime)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -122,6 +122,13 @@ def cmd_scan(args) -> int:
                                            for name in ("critical", "high", "medium", "low")))
         print("  priority: " + ", ".join(f"{name}={priorities.get(name, 0)}"
                                            for name in ("P0", "P1", "P2", "P3")))
+        runtime_prov = report["metadata"].get("runtimeProvenance", {})
+        if args.runtime:
+            if runtime_prov.get("available"):
+                print(f"  runtime: {runtime_prov.get('events', 0)} observations "
+                      f"(controlled opt-in probe)")
+            else:
+                print(f"  runtime: unavailable ({runtime_prov.get('reason', 'unknown')})")
         print(f"  durable summary: {result['memoryNote']}")
         print("  CBOM-style report: stdout with default JSON output")
     else:
@@ -155,12 +162,15 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--task", required=True)
     rp.add_argument("provider_args", nargs=argparse.REMAINDER)
     rp.set_defaults(fn=cmd_run)
-    sp = sub.add_parser("scan", help="run the real ECDAT scan pipeline (source + binary)")
+    sp = sub.add_parser("scan", help="run the real ECDAT scan pipeline (static by default)")
     sp.add_argument("target")
     sp.add_argument("--data-years", type=float, default=10.0)
     sp.add_argument("--migration-years", type=float, default=3.0)
     sp.add_argument("--qrqc-years-left", type=float, default=10.0)
     sp.add_argument("--summary", action="store_true", help="print a concise completion summary")
+    sp.add_argument("--runtime", action="store_true",
+                    help="explicit opt-in: also run the controlled runtime probe "
+                         "(bundled fixture only, bounded, isolated)")
     sp.set_defaults(fn=cmd_scan)
     sub.add_parser("verify").set_defaults(fn=cmd_verify)
     return p

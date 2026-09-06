@@ -1,10 +1,9 @@
-"""Extensible interfaces with clearly-marked MOCK implementations.
+"""Mock-scanner base for future (not yet real) scanners.
 
-HSM/cloud connectors remain future work beyond current scope (source, binary,
-container, and dependency scanning are REAL: see source_scanner.py,
-binary_scanner.py, container_scanner.py, dependency_scanner.py). Each mock
-returns static illustrative findings with is_mock=True so the GUI/CBOM can badge
-them and nobody mistakes them for discovery.
+Source, binary, container, dependency, HSM, cloud, and runtime scanning are all
+REAL (see *_scanner.py). This base remains for any future scanner that starts
+as an explicitly labeled placeholder. Mocks must always set is_mock=True so the
+GUI/CBOM badge them and nobody mistakes them for discovery.
 """
 
 from __future__ import annotations
@@ -24,15 +23,4 @@ class _MockBase(Scanner):
                              confidence=0.1, is_mock=True, **kw)
 
 
-class HSMScanner(_MockBase):
-    name = "hsm"
-
-    def scan(self, target) -> list[CryptoFinding]:
-        return [self._finding(target, "AES-256-HSM", "key")]
-
-
-class CloudCryptoScanner(_MockBase):
-    name = "cloud"
-
-    def scan(self, target) -> list[CryptoFinding]:
-        return [self._finding(target, "KMS-AES-256", "key")]
+__all__ = ["_MockBase"]
