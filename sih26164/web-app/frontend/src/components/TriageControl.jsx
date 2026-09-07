@@ -31,7 +31,7 @@ export default function TriageControl({ scope, fp, current, onSaved }) {
     <div>
       <b>Triage (workflow only — never changes evidence or risk):</b>{" "}
       <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Triage status">
-        {["open", "reviewed", "suppressed"].map((s) => (
+        {["open", "reviewed", "suppressed", "resolved"].map((s) => (
           <option key={s} value={s}>{s}</option>
         ))}
       </select>{" "}

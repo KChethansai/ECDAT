@@ -1,4 +1,4 @@
-"""Deterministic GSD-inspired planner: finding + chosen option + constraints -> plan.
+"""Deterministic planner: finding + chosen option + constraints -> plan.
 
 No LLM. The plan is structured, modular, and agent-friendly (WHAT/WHY/WHERE/
 CONSTRAINTS/EXPECTED/VERIFY per task) with must_haves truths for verification.

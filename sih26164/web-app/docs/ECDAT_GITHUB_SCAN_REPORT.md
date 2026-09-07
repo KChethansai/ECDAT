@@ -24,7 +24,8 @@ queue, git binary, or cloud.
 
 Public repos only; URL allowlist + credential/port/IP rejection; download hosts
 `codeload.github.com` (+ `objects.githubusercontent.com` redirects) and
-`api.github.com`, HTTPS-only, public-address DNS check, 3 validated redirects,
+`api.github.com`, HTTPS-only, public-unicast DNS check (special-purpose ranges
+refused, signed redirect URLs stripped before persisting), 3 validated redirects,
 128 MiB / 512 MiB / 50k-file caps, traversal/absolute/device/symlink rejection,
 abort-never-truncate, workspace cleanup on all paths, no tmp-path leakage, no
 execution (metadata-only dependency reads). Untrusted content stays inert through
@@ -41,14 +42,19 @@ outages fail closed with SHA guidance (observed live during a rate-limit window)
 ## Limits / profiles / history / triage / exports
 
 Caps configurable via `acquisition` policy; profiles quick/crypto/codebase/full/
-full-validation (explicit scanner lists override); history 100 compact entries;
-delta NEW/RESOLVED/UNCHANGED/CHANGED-pairs/severity-changes; triage
-open/reviewed/suppressed with mandatory suppression reasons, fp-keyed,
-presentation-only; JSON export unchanged; SARIF download added.
+full-validation (explicit scanner lists override; web UI omits `scanners` so the
+profile governs); history 100 compact entries;
+delta NEW/RESOLVED/UNCHANGED/CHANGED-pairs/REGRESSION/severity-changes; triage
+open/reviewed/suppressed/**resolved** with mandatory suppression reasons, fp-keyed,
+presentation-only; `status_overrides` capped at 5000 entries; JSON export unchanged;
+SARIF download added.
 
 ## Tests (actual)
 
-- Backend **122 passed** (`103` baseline + `18` `test_sources.py` + `1` manifest test)
+- Backend **128 passed** (`103` baseline + `18` `test_sources.py` + `1` manifest test
+  + `6` audit-pass hardening: special-range SSRF refusals, archive-URL signature
+  stripping, profile-governs-scanners, resolved triage, delta REGRESSION,
+  `status_overrides` caps)
 - CLI **40 passed** (39 + GitHub scan flow with mocked transport)
 - Frontend `npm run build` succeeds
 - Flake hunt closed: two transient full-suite failures were root-caused to real-DNS
@@ -68,6 +74,38 @@ presentation-only; JSON export unchanged; SARIF download added.
 - Local-vs-acquired equivalence on fixture snapshot: identical signatures (PASS)
 - No leaked workspaces; /tmp pressure is environmental (2.8G/3.5G tmpfs, unrelated)
 - Prior 7 local targets re-verified deterministic; crypto regression byte-identical
+
+## Integration audit pass (this pass)
+
+Verified live: `octocat/Hello-World` quick scan (ref master → sha `7fd1a60b01f9`
+via api, no tmp-path leakage, fps stamped); `jpadilla/pyjwt` crypto scan
+(384 findings) — local snapshot vs GitHub acquisition digests **MATCH**,
+repeat scans **deterministic** with stable ids. Hostile-tar probes
+(traversal/absolute/symlink-escape/fifo/multi-top/overlong/malformed) all
+rejected or neutralized with zero symlinks left behind.
+
+Issues found and fixed (all covered by new tests, docs updated):
+
+- **P1 — profile selection not real via API**: the web UI always sent an explicit
+  `scanners` list, which silently overrode the profile's scanner subset
+  (`quick`/`codebase` never restricted scanners). UI now omits `scanners` on
+  GitHub scans so the profile governs; explicit lists still win when sent.
+- **P1 — signed download URL persisted**: `report.source.archive_url` kept the
+  codeload redirect URL including time-limited SigV4 query params (exported in
+  CBOM JSON). Now stores origin + path only.
+- **P2 — SSRF range gaps**: routability check missed multicast, unspecified, and
+  IPv4-mapped special addresses. Now refused (`224.0.0.1` verified refused;
+  `is_global` alone is insufficient since it returns True for multicast).
+- **P2 — triage missing `resolved`**: added as workflow-only state (analysis untouched).
+- **P2 — delta missing `REGRESSION`**: severity-worsened transitions now reported
+  with before/after and shown in history compare.
+- **P3 — `status_overrides` uncapped**: 5000-entry cap on both scan paths.
+
+Not changed (verified, no defect): ref/SHA identity model, fail-closed
+branch-without-API path, archive-identity cross-check, relativization +
+dataclass-driven rekeying, history/delta/triage presentation-only invariant,
+SARIF provenance, CLI exit codes, no-execution (only the bundled first-party
+probe subprocess, explicit opt-in), AI independence (no model/API/token paths).
 
 ## Known limitations / future extension points
 

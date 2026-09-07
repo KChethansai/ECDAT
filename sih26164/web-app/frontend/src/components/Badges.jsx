@@ -1,7 +1,7 @@
 import React from "react";
 
 const PRI_TONE = { P0: "red", P1: "orange", P2: "amber", P3: "cyan" };
-const SEV_TONE = { critical: "red", high: "orange", medium: "amber", low: "green" };
+const SEV_TONE = { critical: "red", high: "orange", medium: "indigo", low: "muted" };
 const STRENGTH_TONE = { HIGH: "cyan", MEDIUM: "amber", LOW: "muted" };
 
 export function Badge({ tone = "muted", label, title }) {

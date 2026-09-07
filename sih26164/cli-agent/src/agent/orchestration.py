@@ -1,4 +1,4 @@
-"""Minimal orchestration: plan (GSD-lite) + verify. Heavy lifting stays in providers."""
+"""Minimal orchestration: plan + verify. Heavy lifting stays in providers."""
 
 from __future__ import annotations
 

@@ -471,3 +471,105 @@ def test_api_remote_scan_validation_and_history(monkeypatch, repo_body):
     # sarif carries repo/commit context
     sarif = client.get(f"/reports/{body['id']}/sarif").json()
     assert sarif["runs"][0]["versionControlProvenance"][0]["revisionId"] == SHA
+
+
+# --- Audit-pass hardening (P1/P2) ---------------------------------------------------
+
+def test_routable_host_refuses_special_ranges(monkeypatch):
+    """Multicast, unspecified, and mapped-loopback resolutions must be refused."""
+    import socket as _socket
+
+    from app.sources.acquire import _assert_routable_host
+
+    def _fake(host, port, type=None, *args, **kwargs):
+        ips = {"multi": "224.0.0.1", "unspec": "0.0.0.0",
+               "mapped": "::ffff:127.0.0.1", "priv": "10.9.9.9"}
+        ip = ips[str(host)]
+        fam = _socket.AF_INET6 if ":" in ip else _socket.AF_INET
+        return [(fam, _socket.SOCK_STREAM, 6, "", (ip, port))]
+
+    monkeypatch.setattr("socket.getaddrinfo", _fake)
+    for host in ("multi", "unspec", "mapped", "priv"):
+        with pytest.raises(AcquisitionError):
+            _assert_routable_host(host, {host})
+
+
+def test_archive_url_strips_signatures(monkeypatch, repo_body):
+    """Stored archive_url must never carry signed query strings."""
+    from app.pipeline import run_github_scan
+
+    signed = ("https://objects.githubusercontent.com/u/12345?"
+              "X-Amz-Algorithm=AWS4&X-Amz-Signature=deadbeef")
+    monkeypatch.setattr(acquire_mod, "urlopen", _fake_urlopen({
+        f"https://codeload.github.com/o/r/tar.gz/{SHA}":
+            lambda: _FakeResp(repo_body, signed),
+    }))
+    report = run_github_scan(f"https://github.com/o/r/commit/{SHA}")
+    url = report["source"]["archive_url"]
+    assert "?" not in url and "Signature" not in url
+    assert url == "https://objects.githubusercontent.com/u/12345"
+
+
+def test_profile_governs_scanners_by_default(monkeypatch, repo_body):
+    """Without an explicit scanner list the profile selects capabilities."""
+    from app.pipeline import run_github_scan
+
+    monkeypatch.setattr(acquire_mod, "urlopen", _fake_urlopen({
+        f"https://codeload.github.com/o/r/tar.gz/{SHA}":
+            lambda: _FakeResp(repo_body, "u"),
+    }))
+    url = f"https://github.com/o/r/commit/{SHA}"
+    codebase = run_github_scan(url, None, "codebase")
+    assert codebase["source"]["profile"] == "codebase"
+    assert codebase["metadata"]["scannerSources"] == ["source"]
+    assert (codebase.get("codeAnalysis") or {}).get("findings") is not None
+    crypto = run_github_scan(url, None, "crypto")
+    assert "codeAnalysis" not in crypto
+    # Explicit scanner list still overrides the profile (documented precedence).
+    over = run_github_scan(url, None, "codebase", ["source", "dependency"])
+    assert sorted(over["metadata"]["scannerSources"]) == ["dependency", "source"]
+
+
+def test_triage_resolved_state():
+    """Resolved is a valid workflow state; suppression still needs a reason."""
+    store: dict = {}
+    entry = set_triage(store, "github:o/r", "f123", "resolved")
+    assert entry["status"] == "resolved" and entry["reason"] == ""
+    with pytest.raises(ValueError):
+        set_triage(store, "github:o/r", "f123", "suppressed")
+    with pytest.raises(ValueError):
+        set_triage(store, "github:o/r", "f123", "bogus")
+
+
+def test_delta_regressions():
+    """Severity worsening lands in REGRESSION; improvement does not."""
+
+    def _rep(rows):
+        return {"components": [
+            {"id": fid, "fp": f"fp-{fid}", "severity": sev, "algorithm": "AES",
+             "file_path": f"o/r/{fid}.py"} for fid, sev in rows]}
+
+    before = _rep([("a", "medium"), ("b", "high"), ("c", "low")])
+    after = _rep([("a", "critical"), ("b", "medium"), ("c", "low")])
+    d = delta(before, after)
+    reg = {(e["id"], e["before"], e["after"]) for e in d["regressions"]}
+    assert ("a", "medium", "critical") in reg
+    assert all(e["id"] != "b" for e in d["regressions"])
+    assert d["summary"]["regressions"] == 1
+    assert delta(before, before)["regressions"] == []
+
+
+def test_status_overrides_capped():
+    """Oversized status_overrides is rejected before any acquisition."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    big = {f"id-{i}": "DISCOVERED" for i in range(5001)}
+    res = client.post("/scans", json={"target": "sample", "status_overrides": big})
+    assert res.status_code == 400
+    res = client.post("/scans", json={"source": {"type": "github",
+                                                 "url": "https://github.com/o/r"},
+                                      "status_overrides": big})
+    assert res.status_code == 400

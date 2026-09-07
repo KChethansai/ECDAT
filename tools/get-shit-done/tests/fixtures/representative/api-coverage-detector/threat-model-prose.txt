@@ -1,1 +1,0 @@
-| Tampering | Resolver-only API rejects arbitrary caller URLs. |

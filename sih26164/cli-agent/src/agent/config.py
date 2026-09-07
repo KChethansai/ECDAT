@@ -3,24 +3,27 @@
 from __future__ import annotations
 
 import json
-import os
+import sys
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 CLI_ROOT = PACKAGE_DIR.parent.parent  # sih26164/cli-agent/
 WORKSPACE_ROOT = CLI_ROOT.parent.parent  # <WORKSPACE_ROOT>/
-# Authoritative ECDAT vault (Phase 9 migration). Overridable via OBSIDIAN_VAULT_PATH.
-DEFAULT_VAULT = Path("/home/chethan/Documents/Vaults/SIH")
+BACKEND_ROOT = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend"
 REGISTRY_FILE = CLI_ROOT / "config" / "agents.json"
 
 
 def resolve_vault_path(explicit: str | None = None) -> Path:
-    """Explicit --vault wins; then OBSIDIAN_VAULT_PATH; then workspace default."""
-    if explicit:
-        return Path(explicit).expanduser().resolve()
-    if env := os.environ.get("OBSIDIAN_VAULT_PATH"):
-        return Path(env).expanduser().resolve()
-    return DEFAULT_VAULT.resolve()
+    """Single mechanism lives in backend app.project_memory (stdlib-only).
+
+    Priority: explicit --vault > deployment config > OBSIDIAN_VAULT_PATH >
+    user-local ~/Documents/Vaults/SIH. The developer path is never a default.
+    """
+    if str(BACKEND_ROOT) not in sys.path:
+        sys.path.insert(0, str(BACKEND_ROOT))
+    from app.project_memory import resolve_vault_path as shared
+
+    return shared(explicit).resolve()
 
 
 def load_registry(path: Path | None = None) -> list[dict]:

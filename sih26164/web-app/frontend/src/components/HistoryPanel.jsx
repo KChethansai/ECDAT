@@ -87,16 +87,21 @@ export default function HistoryPanel() {
               <div style={{ marginTop: 8 }}>
                 <p><b>Delta:</b> {num(delta.summary?.new)} new · {num(delta.summary?.resolved)} resolved ·{" "}
                   {num(delta.summary?.unchanged)} unchanged · {num(delta.summary?.changed)} changed ·{" "}
+                  {num(delta.summary?.regressions)} regression(s) ·{" "}
                   {num(delta.summary?.new_critical)} new critical · {num(delta.summary?.resolved_critical)} resolved critical</p>
-                {["new", "resolved", "changed"].map((key) => (
+                {["new", "resolved", "changed", "regressions"].map((key) => (
                   arr(delta[key]).length > 0 ? (
                     <div key={key}>
                       <p><b>{key}</b> ({arr(delta[key]).length})</p>
                       <ul>
                         {arr(delta[key]).slice(0, 30).map((e) => (
                           <li key={`${key}-${e.id}`}>
-                            <span className="mono">{str(e.title).slice(0, 80)}</span> · {str(e.kind)} ·{" "}
-                            <code className="evidence">{str(e.file_path).slice(0, 100)}</code>
+                            {key === "regressions" ? (
+                              <><span className="mono">{str(e.id).slice(0, 24)}</span> · {str(e.kind)} · severity {str(e.before)} → <b>{str(e.after)}</b></>
+                            ) : (
+                              <><span className="mono">{str(e.title).slice(0, 80)}</span> · {str(e.kind)} ·{" "}
+                              <code className="evidence">{str(e.file_path).slice(0, 100)}</code></>
+                            )}
                           </li>
                         ))}
                       </ul>

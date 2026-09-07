@@ -8,11 +8,6 @@ standardized reports + interactive GUI.
 ## Layout
 
 ```text
-tools/                     # external references only (never imported by ECDAT code)
-├── ponytail/              # DietrichGebert/ponytail (workflow reference)
-├── get-shit-done/         # open-gsd/gsd-core (planning reference; upstream renamed)
-├── everything-claude-code/# affaan-m/ECC (patterns reference)
-└── fullstack-agent/       # jaredrhod/fullstack-agent, AGPL — independent optional tooling
 obsidian-vault/            # frozen Phase 1–8 reference copy (authoritative vault now lives at ~/Documents/Vaults/SIH)
 sih26164/
 ├── cli-agent/             # provider-neutral orchestration CLI (Python stdlib, zero runtime deps)
@@ -63,4 +58,3 @@ Details per app in their READMEs; end-to-end demo path in `sih26164/web-app/docs
 - `sih26164/web-app/README.md` + `docs/` — product, scanner pipeline, API.
 - `~/Documents/Vaults/SIH` — durable knowledge (human-readable, Obsidian-compatible).
 - `docs/DEMO.md` (in cli-agent) — two-session persistent-memory demo.
-- `TOOLS.md` — external tooling verification report.

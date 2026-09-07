@@ -141,8 +141,10 @@ export default function App() {
     try {
       const known = Array.isArray(health.scanners) && health.scanners.length > 0 ? health.scanners.filter((s) => s !== "runtime") : FALLBACK_SCANNERS;
       const endpoints = validationUrls.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+      // GitHub scans omit `scanners` so the selected profile governs capability
+      // selection server-side (an explicit list would override the profile).
       const payload = isGithub
-        ? { scanners: known, runtime, validate, validation_targets: endpoints,
+        ? { runtime, validate, validation_targets: endpoints,
             validation_policy: allowNonLoopback ? { allow_non_loopback: true } : null,
             code_analysis: codeAnalysis,
             source: { type: "github", url: githubUrl.trim(),

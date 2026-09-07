@@ -184,6 +184,8 @@ def run_github_scan(github_url: str, ref: str | None = None, profile: str = "ful
             resolved["sha"] = sha
             # Scan the archive topdir as root so it never leaks into finding paths.
             scan_root = _Path(workspace) / topdir
+            # Never persist signed download URLs (time-limited SigV4 query).
+            archive_ref = final_url.split("?", 1)[0].split("#", 1)[0][:512]
             if code_categories is not None:
                 prof["code_categories"] = code_categories
                 prof["code_analysis"] = True
@@ -205,7 +207,7 @@ def run_github_scan(github_url: str, ref: str | None = None, profile: str = "ful
                 "visibility": resolved.get("visibility", ""),
                 "resolution": resolved.get("via", ""),
                 "profile": prof["profile"], "archive_bytes": len(body),
-                "archive_url": final_url[:512],
+                "archive_url": archive_ref,
                 "skipped_symlinks": skipped_links,
                 "acquisition": policy.summary(),
                 "duration_s": round(_time.time() - started, 2),

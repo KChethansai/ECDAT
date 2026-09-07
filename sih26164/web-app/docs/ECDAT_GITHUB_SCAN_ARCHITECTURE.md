@@ -32,7 +32,10 @@ across commits (delta `UNCHANGED` depends on it).
 
 - Network: only `api.github.com` (metadata) and `codeload.github.com` (+ its
   `objects.githubusercontent.com` redirect target); HTTPS only; hosts must resolve
-  to public addresses; 3 validated redirects; 10 s connect / 300 s total budgets.
+  to public unicast addresses (loopback/private/link-local/reserved/multicast/
+  unspecified/IPv4-mapped-special all refused); 3 validated redirects; 10 s
+  connect / 300 s total budgets. Stored `archive_url` keeps origin + path only —
+  signed redirect query strings are stripped before persisting.
 - Archive as hostile input: 128 MiB download / 512 MiB extracted / 50k files /
   64 MiB single-file caps (configurable); traversal, absolute paths, device nodes
   rejected; **all symlinks dropped** (scanners skip them anyway); single-topdir
@@ -48,16 +51,20 @@ across commits (delta `UNCHANGED` depends on it).
 `crypto` (all crypto scanners, no code analysis),
 `codebase` (source scanner + all code analyzers),
 `full` (everything static), `full-validation` (full + Active Validation opt-in flag).
-Explicit API scanner lists override the profile's list. Active Validation stays
-opt-in and targetless by default (runtime correlation only).
+Explicit API scanner lists override the profile's list. The web UI omits
+`scanners` on GitHub scans so the chosen profile genuinely governs; explicit
+runtime/validate/code-analysis toggles OR into the profile (never silently on).
+Active Validation stays opt-in and targetless by default (runtime correlation only).
 
 ## History, delta, triage
 
 In-memory history (100 compact entries, counts only). Delta compares by stable id,
 pairs moves by fingerprint (`CHANGED` with before/after ids, single entry per pair),
-flags severity changes. Triage (`open/reviewed/suppressed`) is presentation state
-stamped at read time; suppression requires a reason; fingerprints exclude line
-numbers so triage survives line moves but requires re-review on content change.
+flags severity changes and derives `REGRESSION` (severity worsened on an unchanged
+or moved finding). Triage (`open/reviewed/suppressed/resolved`) is presentation
+state stamped at read time; suppression requires a reason; fingerprints exclude
+line numbers so triage survives line moves but requires re-review on content
+change. `status_overrides` payloads are capped at 5000 entries on both scan paths.
 
 ## SARIF / exports
 

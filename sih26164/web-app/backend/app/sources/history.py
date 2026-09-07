@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import time
 
-TRIAGE_STATES = ("open", "reviewed", "suppressed")
+TRIAGE_STATES = ("open", "reviewed", "suppressed", "resolved")
 SUPPRESS_REASONS = ("false-positive", "intentional-architecture", "accepted-risk",
                     "not-applicable", "duplicate", "deferred", "other")
+# Severity rank for regression detection (higher = worse).
+SEV_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
 def history_record(scan_id: str, source: dict, profile: str, report: dict,
@@ -40,12 +42,15 @@ def delta(before: dict, after: dict) -> dict:
     """Compare two reports by stable id; fingerprint fallback detects moves/changes.
 
     Statuses: NEW / RESOLVED / UNCHANGED / CHANGED (same fp, different id —
-    e.g. line moved or severity-relevant field changed).
+    e.g. line moved or severity-relevant field changed) / REGRESSION (severity
+    worsened on an unchanged or moved finding).
     """
     result: dict = {"new": [], "resolved": [], "unchanged": [], "changed": [],
+                    "regressions": [],
                     "severity_changed": [], "summary": {}}
-    for section in (("components", "crypto"), ("code", "code")):
-        key, kind = section
+    def _worse(before_sev: str, after_sev: str) -> bool:
+        return SEV_RANK.get(after_sev, 0) > SEV_RANK.get(before_sev, 0)
+    for kind in ("crypto", "code"):
         if kind == "crypto":
             b_rows = before.get("components", [])
             a_rows = after.get("components", [])
@@ -68,6 +73,12 @@ def delta(before: dict, after: dict) -> dict:
                 entry["after_id"] = partner
                 entry["after_path"] = a_id[partner].get("file_path", "")
                 result["changed"].append(entry)
+                b_sev = b_id[fid].get("severity", "")
+                a_sev = a_id[partner].get("severity", "")
+                if _worse(b_sev, a_sev):
+                    result["regressions"].append({"id": fid, "after_id": partner,
+                                                 "kind": kind, "before": b_sev,
+                                                 "after": a_sev})
             else:
                 result["resolved"].append(entry)
         for fid in sorted(set(a_id) - set(b_id)):
@@ -78,11 +89,15 @@ def delta(before: dict, after: dict) -> dict:
                                   "file_path": a_id[fid].get("file_path", "")})
         for fid in sorted(set(b_id) & set(a_id)):
             result["unchanged"].append({"id": fid, "kind": kind})
-            if b_id[fid].get("severity") != a_id[fid].get("severity"):
+            b_sev, a_sev = b_id[fid].get("severity"), a_id[fid].get("severity")
+            if b_sev != a_sev:
                 result["severity_changed"].append({
-                    "id": fid, "kind": kind,
-                    "before": b_id[fid].get("severity"), "after": a_id[fid].get("severity")})
+                    "id": fid, "kind": kind, "before": b_sev, "after": a_sev})
+                if _worse(b_sev, a_sev):
+                    result["regressions"].append({"id": fid, "kind": kind,
+                                                 "before": b_sev, "after": a_sev})
     summary = {k: len(result[k]) for k in ("new", "resolved", "unchanged", "changed")}
+    summary["regressions"] = len(result["regressions"])
     summary["new_critical"] = sum(
         1 for e in result["new"] if e["kind"] == "crypto" and _is_critical(after, e["id"]))
     summary["resolved_critical"] = sum(

@@ -23,7 +23,7 @@ export function ExecutiveMetrics({ report, criticallyHigh, runtimeCount, immedia
           value={criticallyHigh}
           meaning="Needs attention first"
           tone={criticallyHigh > 0 ? "var(--red)" : "var(--green)"}
-          glow={criticallyHigh > 0 ? "rgba(239,111,111,.12)" : "rgba(61,213,152,.12)"}
+          glow={criticallyHigh > 0 ? "rgba(255,180,171,.12)" : "rgba(61,213,152,.12)"}
         />
         <Metric
           label="Immediate migration"
@@ -34,8 +34,8 @@ export function ExecutiveMetrics({ report, criticallyHigh, runtimeCount, immedia
         />
       </div>
       <div className="grid metrics-secondary">
-        <Metric small label="Algorithm families" value={familyCount} meaning="Canonical inventory groups" tone="var(--indigo)" glow="rgba(139,147,248,.12)" />
-        <Metric small label="Migration candidates" value={candidateCount} meaning="Planned work items" tone="var(--indigo)" glow="rgba(139,147,248,.12)" />
+        <Metric small label="Algorithm families" value={familyCount} meaning="Canonical inventory groups" tone="var(--indigo)" glow="rgba(190,194,255,.12)" />
+        <Metric small label="Migration candidates" value={candidateCount} meaning="Planned work items" tone="var(--indigo)" glow="rgba(190,194,255,.12)" />
         <Metric small label="Open unknowns" value={unknownCount} meaning="Planner-recorded gaps" tone="var(--amber)" glow="rgba(240,166,43,.1)" />
         <Metric small label="Runtime observations" value={runtimeCount} meaning="Controlled probe only" tone="var(--green)" glow="rgba(61,213,152,.1)" />
       </div>
@@ -44,7 +44,7 @@ export function ExecutiveMetrics({ report, criticallyHigh, runtimeCount, immedia
 }
 
 const SEV_ORDER = ["critical", "high", "medium", "low"];
-const SEV_BAR = { critical: "var(--red)", high: "var(--orange)", medium: "var(--amber)", low: "var(--green)" };
+const SEV_BAR = { critical: "var(--red)", high: "var(--orange)", medium: "var(--indigo)", low: "var(--muted)" };
 const PRI_ORDER = ["P0", "P1", "P2", "P3"];
 const PRI_BAR = { P0: "var(--red)", P1: "var(--orange)", P2: "var(--amber)", P3: "var(--cyan)" };
 const STR_ORDER = ["HIGH", "MEDIUM", "LOW"];

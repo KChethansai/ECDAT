@@ -76,7 +76,7 @@ def health() -> dict:
 MAX_LIST_ITEMS = 5000  # inbound list payload cap (runner/analyzer cap lower)
 
 
-def _cap_list(name: str, values: list | None, limit: int = MAX_LIST_ITEMS) -> None:
+def _cap_list(name: str, values: list | dict | None, limit: int = MAX_LIST_ITEMS) -> None:
     if values is not None and len(values) > limit:
         raise ValueError(f"{name} exceeds {limit} items")
 
@@ -119,6 +119,7 @@ def create_scan(req: ScanRequest) -> dict:
     try:
         _cap_list("validation_targets", req.validation_targets, 200)
         _cap_list("code_categories", req.code_categories, 20)
+        _cap_list("status_overrides", req.status_overrides)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     try:
@@ -169,6 +170,7 @@ def _create_remote_scan(req: ScanRequest) -> dict:
     try:
         _cap_list("validation_targets", req.validation_targets, 200)
         _cap_list("code_categories", req.code_categories, 20)
+        _cap_list("status_overrides", req.status_overrides)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     started = _time.time()
@@ -244,7 +246,7 @@ def scan_delta(req: DeltaRequest) -> dict:
 class TriageRequest(BaseModel):
     scope: str = Field(description="triage scope, e.g. github:owner/repo")
     fingerprint: str = Field(description="stable finding fingerprint (fp)")
-    status: str = Field(description="open|reviewed|suppressed")
+    status: str = Field(description="open|reviewed|suppressed|resolved")
     reason: str = Field(default="", description="required for suppressed")
 
 

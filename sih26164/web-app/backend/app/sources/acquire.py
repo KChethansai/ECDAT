@@ -8,7 +8,6 @@ from __future__ import annotations
 import io
 import ipaddress
 import json
-import os
 import shutil
 import socket
 import tarfile
@@ -70,6 +69,17 @@ class AcquisitionPolicy:
                 "connect_timeout_s": self.connect_timeout_s}
 
 
+def _is_public_unicast(addr) -> bool:
+    """True only for globally routable unicast addresses (no special-purpose ranges)."""
+    if (addr.is_loopback or addr.is_private or addr.is_link_local
+            or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+        return False
+    mapped = getattr(addr, "ipv4_mapped", None)
+    if mapped is not None and not _is_public_unicast(mapped):
+        return False
+    return True
+
+
 def _assert_routable_host(host: str, allowed: set[str]) -> str:
     """Allowlisted host that does not resolve to loopback/private/link-local space."""
     name = (host or "").lower().rstrip(".")
@@ -84,7 +94,7 @@ def _assert_routable_host(host: str, allowed: set[str]) -> str:
             addr = ipaddress.ip_address(info[4][0])
         except ValueError:
             continue
-        if addr.is_loopback or addr.is_private or addr.is_link_local or addr.is_reserved:
+        if not _is_public_unicast(addr):
             raise AcquisitionError(f"refusing non-public address for '{name}'")
     return name
 

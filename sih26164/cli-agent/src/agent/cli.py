@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from . import __version__, adapters, analyst, context, orchestration, registry, scan
 from .config import CLI_ROOT, resolve_vault_path
@@ -71,6 +72,96 @@ def cmd_memory(args) -> int:
         return 1
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 2
+    if args.op == "status":
+        return cmd_memory_status(args)
+    if args.op == "setup":
+        return cmd_memory_setup(args)
+    if args.op == "sync":
+        return cmd_memory_sync(args)
+    return 0
+
+
+def _project_memory():
+    from .config import BACKEND_ROOT
+
+    if str(BACKEND_ROOT) not in sys.path:
+        sys.path.insert(0, str(BACKEND_ROOT))
+    from app import project_memory as pm
+
+    return pm
+
+
+def cmd_memory_status(args) -> int:
+    from .config import resolve_vault_path
+
+    pm = _project_memory()
+    vault = resolve_vault_path(args.vault)
+    obs = pm.detect_obsidian()
+    print(f"vault: {vault} ({'exists' if vault.is_dir() else 'missing'})")
+    print(f"obsidian: {obs['path'] or 'not detected'}")
+    for rel in ("08-Reference/ECDAT-project-index.md",
+                "01-Project/ECDAT-current-state.md"):
+        try:
+            exists = pm.safe_join(vault, rel).is_file()
+        except ValueError:
+            exists = False
+        print(f"{rel}: {'present' if exists else 'absent'}")
+    return 0
+
+
+def cmd_memory_setup(args) -> int:
+    from .config import resolve_vault_path
+
+    pm = _project_memory()
+    try:
+        report = pm.setup_report(resolve_vault_path(args.vault), args.installer)
+    except OSError as exc:
+        print(f"setup failed: {exc}", file=sys.stderr)
+        return 2
+    print(f"status: {report['status']}")
+    print(f"obsidian: {report['obsidian']['path'] or 'not detected'}")
+    print(f"config: {report['config']}")
+    if report["manual_step"]:
+        print(f"manual step: {report['manual_step']}")
+    return 0 if report["status"] != "blocked" else 2
+
+
+def cmd_memory_sync(args) -> int:
+    from .config import WORKSPACE_ROOT, resolve_vault_path
+
+    pm = _project_memory()
+    if not args.title:
+        print("sync needs --title", file=sys.stderr)
+        return 2
+    day = args.date or pm.today()
+    body = ""
+    if args.body_file == "-":
+        body = sys.stdin.read()
+    elif args.body_file:
+        try:
+            body = Path(args.body_file).read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"cannot read body file: {exc}", file=sys.stderr)
+            return 2
+    vault = resolve_vault_path(args.vault)
+    git = pm.git_state(WORKSPACE_ROOT)
+    git_txt = (f"branch {git.get('branch')} @ {git.get('commit')}"
+               if "error" not in git else git["error"])
+    builders = {"session": lambda: pm.session_note(args.title, day, "cli",
+                                                   context=body, git=git_txt),
+                "validation": lambda: pm.validation_note(args.title, day, "cli",
+                                                         result=body),
+                "audit": lambda: pm.audit_note(args.title, day, "cli",
+                                               findings=body),
+                "commit": lambda: pm.commit_note(
+                    git.get("commit", "unknown"), day, args.title,
+                    validation=body)}
+    try:
+        rel, content = builders[args.kind]()
+        print(f"{pm.sync_note(vault, rel, content)}: {rel}")
+    except (ValueError, FileExistsError, OSError) as exc:
+        print(f"sync failed: {exc}", file=sys.stderr)
         return 2
     return 0
 
@@ -345,9 +436,16 @@ def build_parser() -> argparse.ArgumentParser:
     cp.add_argument("--max-chars", type=int, default=4000)
     cp.set_defaults(fn=cmd_context)
     mp = sub.add_parser("memory")
-    mp.add_argument("op", choices=["get", "set", "read", "write", "list", "search"])
+    mp.add_argument("op", choices=["get", "set", "read", "write", "list", "search",
+                                   "status", "setup", "sync"])
     mp.add_argument("key", nargs="?", default="")
     mp.add_argument("value", nargs="?", default="")
+    mp.add_argument("--kind", default="session",
+                    choices=["session", "validation", "audit", "commit"])
+    mp.add_argument("--title", default="")
+    mp.add_argument("--body-file", default="")
+    mp.add_argument("--date", default="")
+    mp.add_argument("--installer", default="")
     mp.set_defaults(fn=cmd_memory)
     pp = sub.add_parser("plan")
     pp.add_argument("goal")

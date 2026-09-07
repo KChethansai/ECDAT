@@ -153,9 +153,7 @@ export default function FindingDrawer({ finding, byId, report, onClose }) {
           </Sec>
 
           <Sec icon={<IconLock size={13} />} title="EVIDENCE">
-            <p>
-              <code className="evidence">{str(f.evidence, "metadata only")}</code>
-            </p>
+            <code className="evidence evidence-block">{str(f.evidence, "metadata only")}</code>
             <p>Truncated metadata snippet (≤160 chars, secrets redacted server-side). Key material is never emitted.</p>
           </Sec>
 

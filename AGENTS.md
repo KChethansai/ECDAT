@@ -7,8 +7,6 @@ Plus a provider-neutral dev CLI (`sih26164/cli-agent`) orchestrating external co
 
 ## Directory responsibilities
 
-- `tools/` — external references. READ-ONLY. Never import into ECDAT code. Never copy
-  implementation code from these repos (AGPL risk: fullstack-agent). Workflow/design reference only.
 - Vault at `~/Documents/Vaults/SIH` — **authoritative persistent AI/project memory** (Markdown). CLI reads/writes
   only through `MemoryProvider`. Never a database. Vault path via `OBSIDIAN_VAULT_PATH`.
   (`obsidian-vault/` in this workspace is a frozen pre-migration reference copy.)
@@ -41,7 +39,7 @@ cd ../frontend && npm install && npm run build        # frontend build
 ## Git rules
 
 - Two repos: `sih26164/cli-agent`, `sih26164/web-app`. Separate histories.
-- Never commit `tools/` or `obsidian-vault/` into app repos. Never commit secrets.
+- Never commit `obsidian-vault/` into app repos. Never commit secrets.
 - `git status` before work; never touch unrelated uncommitted work.
 
 ## Memory workflow
