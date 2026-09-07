@@ -26,6 +26,9 @@ app.add_middleware(
 )
 REPORTS: dict[str, dict] = {}
 MAX_REPORTS = 50  # in-memory only; oldest evicted, restart clears all
+SOURCE_HISTORY: list[dict] = []
+MAX_HISTORY = 100  # compact entries only (counts, never findings)
+TRIAGE: dict[tuple[str, str], dict] = {}  # (scope, fingerprint) -> workflow state
 BASE = Path(__file__).resolve().parent.parent
 SAMPLES = BASE / "samples"
 WORKSPACE_ROOT = BASE.parents[2]
@@ -51,6 +54,13 @@ class ScanRequest(BaseModel):
                            "static codebase analysis (separate from crypto findings)")
     code_categories: list[str] | None = Field(default=None, description="analyzer subset "
                            "(default: all)")
+    source: dict | None = Field(default=None, description="remote source adapter "
+                           "{type: github, url, ref?} (exclusive with non-default target)")
+    profile: str | None = Field(default=None, description="scan profile for remote sources "
+                           "(quick|crypto|codebase|full|full-validation; default full)")
+    acquisition: dict | None = Field(default=None, description="acquisition limits "
+                           "(max_download_bytes, max_extracted_bytes, max_files, "
+                           "total_deadline_s)")
 
 
 @app.get("/health")
@@ -95,6 +105,8 @@ def resolve_scan_target(raw_target: str) -> Path:
 
 @app.post("/scans")
 def create_scan(req: ScanRequest) -> dict:
+    if req.source is not None:
+        return _create_remote_scan(req)
     try:
         target = resolve_scan_target(req.target)
     except FileNotFoundError:
@@ -121,6 +133,11 @@ def create_scan(req: ScanRequest) -> dict:
         raise HTTPException(404, f"scan target not found: {req.target}")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    rid = _store_report(report)
+    return {"id": rid, "report": report}
+
+
+def _store_report(report: dict) -> str:
     rid = uuid.uuid4().hex[:12]
     REPORTS[rid] = report
     while len(REPORTS) > MAX_REPORTS:
@@ -130,6 +147,55 @@ def create_scan(req: ScanRequest) -> dict:
         CODE_ANALYSES[analysis["analysis_id"]] = analysis
         while len(CODE_ANALYSES) > MAX_ANALYSES:
             CODE_ANALYSES.pop(next(iter(CODE_ANALYSES)))
+    return rid
+
+
+def _create_remote_scan(req: ScanRequest) -> dict:
+    """GitHub source adapter: acquire, run the existing pipeline, record history."""
+    import time as _time
+
+    from .pipeline import run_github_scan
+    from .sources import AcquisitionError
+    from .sources.history import history_record
+
+    if not isinstance(req.source, dict) or req.source.get("type") != "github":
+        raise HTTPException(400, "unsupported source (valid: {type: github, url, ref?})")
+    if req.target != "sample":
+        raise HTTPException(400, "source and target are mutually exclusive")
+    url = req.source.get("url", "")
+    ref = req.source.get("ref")
+    if ref is not None and not isinstance(ref, str):
+        raise HTTPException(400, "source ref must be a string")
+    try:
+        _cap_list("validation_targets", req.validation_targets, 200)
+        _cap_list("code_categories", req.code_categories, 20)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    started = _time.time()
+    # Default scanner list defers to the profile; an explicit list overrides it.
+    scanners = None if sorted(req.scanners) == sorted(REAL_SCANNERS) else req.scanners
+    unknown = [s for s in (scanners or []) if s not in SCANNERS]
+    if unknown:
+        raise HTTPException(400, f"unknown scanners: {unknown}")
+    try:
+        report = run_github_scan(
+            url, ref, req.profile or "full", scanners,
+            req.data_years, req.migration_years, req.qrqc_years_left,
+            runtime=req.runtime, status_overrides=req.status_overrides,
+            validate=req.validate, validation_targets=req.validation_targets,
+            validation_policy=req.validation_policy,
+            code_analysis=req.code_analysis, code_categories=req.code_categories,
+            acquisition_policy=req.acquisition)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    except AcquisitionError as exc:
+        raise HTTPException(502, f"repository acquisition failed: {exc}")
+    rid = _store_report(report)
+    SOURCE_HISTORY.append(history_record(rid, report.get("source", {}),
+                                         report["source"].get("profile", "full"),
+                                         report, _time.time() - started))
+    while len(SOURCE_HISTORY) > MAX_HISTORY:
+        SOURCE_HISTORY.pop(0)
     return {"id": rid, "report": report}
 
 
@@ -137,7 +203,69 @@ def create_scan(req: ScanRequest) -> dict:
 def get_report(rid: str) -> dict:
     if rid not in REPORTS:
         raise HTTPException(404, "unknown report (reports are in-memory; re-POST /scans)")
+    _apply_report_triage(REPORTS[rid])
     return REPORTS[rid]
+
+
+def _triage_scope(report: dict) -> str:
+    source = report.get("source") or {}
+    if source.get("type") == "github":
+        return f"github:{source.get('owner')}/{source.get('repo')}"
+    return f"local:{(report.get('metadata') or {}).get('scanTarget', '')[:128]}"
+
+
+def _apply_report_triage(report: dict) -> None:
+    from .sources.history import apply_triage
+
+    scope = _triage_scope(report)
+    apply_triage(report.get("components", []), TRIAGE, scope)
+    apply_triage((report.get("codeAnalysis") or {}).get("findings", []), TRIAGE, scope)
+
+
+@app.get("/scan-history")
+def scan_history() -> dict:
+    return {"history": list(reversed(SOURCE_HISTORY))}
+
+
+class DeltaRequest(BaseModel):
+    before: str = Field(description="report id of the earlier scan")
+    after: str = Field(description="report id of the later scan")
+
+
+@app.post("/scan-delta")
+def scan_delta(req: DeltaRequest) -> dict:
+    from .sources.history import delta
+
+    if req.before not in REPORTS or req.after not in REPORTS:
+        raise HTTPException(404, "unknown report id (reports are in-memory; re-POST /scans)")
+    return delta(REPORTS[req.before], REPORTS[req.after])
+
+
+class TriageRequest(BaseModel):
+    scope: str = Field(description="triage scope, e.g. github:owner/repo")
+    fingerprint: str = Field(description="stable finding fingerprint (fp)")
+    status: str = Field(description="open|reviewed|suppressed")
+    reason: str = Field(default="", description="required for suppressed")
+
+
+@app.post("/triage")
+def set_finding_triage(req: TriageRequest) -> dict:
+    from .sources.history import set_triage
+
+    if not req.scope or len(req.scope) > 256:
+        raise HTTPException(400, "invalid triage scope")
+    try:
+        return set_triage(TRIAGE, req.scope, req.fingerprint, req.status, req.reason)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/triage")
+def list_triage(scope: str = "") -> dict:
+    if len(scope) > 256:
+        raise HTTPException(400, "invalid triage scope")
+    entries = [e for (s, _), e in TRIAGE.items() if not scope or s == scope]
+    return {"triage": sorted(entries, key=lambda e: e["timestamp"], reverse=True)[:500]}
 
 
 VALIDATIONS: dict[str, dict] = {}

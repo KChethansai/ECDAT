@@ -58,7 +58,8 @@ CRYPTO_DEPS: dict[str, tuple[str, float]] = {
 MANIFESTS = {"requirements.txt", "pyproject.toml", "setup.cfg", "package.json",
              "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "pom.xml",
              "build.gradle", "build.gradle.kts", "cargo.toml", "cargo.lock",
-             "go.mod", "go.sum"}
+             "go.mod", "go.sum", "poetry.lock", "composer.json", "composer.lock",
+             "gemfile", "gemfile.lock"}
 REQUIREMENTS_RE = re.compile(r"^\s*([A-Za-z0-9_.\-]+)(?:\[[^\]]*\])?\s*([^;#\s]*)\s*(?:[#;].*)?$")
 GRADLE_RE = re.compile(r"""['"]([^'":\s]+):([^'":\s]+):([^'":\s]+)['"]""")
 GOMOD_RE = re.compile(r"^\s*(?:require\s+)?([\w.\-/]+(?:/[\w.\-]+)+)\s+(v[\w.+-]+)")

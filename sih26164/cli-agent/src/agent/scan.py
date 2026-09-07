@@ -120,6 +120,57 @@ def verify_findings(before: list[dict], after: list[dict],
     return verify(before, after, touched)
 
 
+def scan_github(mem: ObsidianVaultProvider, github_url: str, ref: str | None = None,
+                profile: str = "full", data_years: float = 10.0,
+                migration_years: float = 3.0, qrqc_years_left: float = 10.0,
+                runtime: bool = False, persist: bool = True,
+                validate: bool = False) -> dict:
+    """Acquire a public GitHub repo, run the pipeline, persist durable knowledge.
+
+    Static analysis only: repository content is never executed. Raises
+    ValueError on bad input, AcquisitionError (as ValueError) on fetch failure.
+    """
+    if any(not 0 <= value <= 100 for value in (data_years, migration_years, qrqc_years_left)):
+        raise ValueError("risk horizons must be between 0 and 100")
+    backend = str(BACKEND_ROOT)
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from app.pipeline import run_github_scan
+    from app.sources import AcquisitionError
+
+    mem.initialize()
+    hits = mem.search(CONTEXT_QUERY, top_n=5)
+    analysis_context = context.build_context(mem, CONTEXT_QUERY, max_chars=4000, top_n=5)
+    context_notes = [rel for rel, _ in hits]
+    try:
+        report = run_github_scan(github_url, ref, profile,
+                                 data_years=data_years, migration_years=migration_years,
+                                 qrqc_years_left=qrqc_years_left, runtime=runtime,
+                                 validate=validate)
+    except AcquisitionError as exc:
+        raise ValueError(f"repository acquisition failed: {exc}") from exc
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S%fZ")
+    note = ""
+    if persist:
+        source = report.get("source", {})
+        note = f"07-Sessions/Scans/{stamp}-github-scan.md"
+        mem.write(note, "\n".join([
+            f"# ECDAT GitHub scan — {datetime.now(timezone.utc).date().isoformat()}",
+            "",
+            "## Durable summary",
+            f"- Repository: `{source.get('owner')}/{source.get('repo')}`",
+            f"- Ref requested: {source.get('ref_requested') or '(default)'}",
+            f"- Commit: {source.get('sha', '')}",
+            f"- Profile: {source.get('profile', '')}",
+            f"- Findings: {report['summary']['real']} real, {report['summary']['mock']} mock",
+            f"- Context consulted: {', '.join(context_notes) or 'none'}",
+            "",
+            "No file evidence, cryptographic key material, or generated CBOM is retained here.",
+        ]) + "\n")
+    return {"report": report, "contextNotes": context_notes,
+            "contextChars": len(analysis_context), "memoryNote": note}
+
+
 def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
          migration_years: float = 3.0, qrqc_years_left: float = 10.0,
          runtime: bool = False, persist: bool = True, validate: bool = False,

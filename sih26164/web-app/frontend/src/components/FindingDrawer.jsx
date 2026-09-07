@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from "react";
 import { analystLine, arr, lineLabel, matchesFor, obj, shortPath, skillById, str } from "../lib/report.js";
 import { Badge, PriorityBadge, RealBadge, RuntimeBadge, SeverityBadge, StatusBadge, StrengthBadge } from "./Badges.jsx";
 import { IconBox, IconCompass, IconDoc, IconEvidence, IconGauge, IconLink, IconLock, IconMigrate, IconX } from "./icons.jsx";
+import { triageScopeFor } from "./RepoPanel.jsx";
+import TriageControl from "./TriageControl.jsx";
 
 function SecurityContext({ finding, report }) {
   const matches = matchesFor(finding);
@@ -230,6 +232,15 @@ export default function FindingDrawer({ finding, byId, report, onClose }) {
           </Sec>
 
           <ValidationSection finding={finding} report={report} />
+
+          <Sec icon={<IconDoc size={13} />} title="TRIAGE">
+            {str(f.triage?.status, "open") !== "open" ? (
+              <p>
+                <b>State:</b> {str(f.triage?.status)}{str(f.triage?.reason) ? ` (${str(f.triage?.reason)})` : ""}
+              </p>
+            ) : null}
+            <TriageControl scope={triageScopeFor(report)} fp={str(f.fp)} current={f.triage} />
+          </Sec>
 
           <SecurityContext finding={finding} report={report} />
 

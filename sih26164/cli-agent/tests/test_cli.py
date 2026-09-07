@@ -216,3 +216,54 @@ def test_remediate_rejects_malformed_analysis_and_bad_output(monkeypatch, tmp_pa
     assert _run(monkeypatch, tmp_path, "analyze", str(repo),
                 "--out", "/definitely/missing/dir/out.json") == 1
     assert "cannot write output" in capsys.readouterr().err
+
+
+def test_scan_github_url_ref_profile_and_failure(monkeypatch, tmp_path, capsys):
+    import io as _io
+    import sys as _sys
+    import tarfile as _tarfile
+
+    backend = str(WORKSPACE_ROOT / "sih26164" / "web-app" / "backend")
+    if backend not in _sys.path:
+        _sys.path.insert(0, backend)
+    sha = "b" * 40
+    buf = _io.BytesIO()
+    with _tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        data = b"import hashlib\nh = hashlib.md5(b'x')\n"
+        info = _tarfile.TarInfo(f"repo-{sha}/app.py")
+        info.size = len(data)
+        tar.addfile(info, _io.BytesIO(data))
+    body = buf.getvalue()
+
+    class _Resp:
+        url = "u"
+        status = 200
+        headers = {}
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n=-1):
+            chunk, self._payload = self._payload[:n], self._payload[n:]
+            return chunk
+
+    import app.sources.acquire as _acquire
+    monkeypatch.setattr(_acquire, "urlopen",
+                        lambda req, timeout=None: _Resp(body))
+    url = f"https://github.com/o/r/commit/{sha}"
+    assert _run(monkeypatch, tmp_path, "scan", "ignored", "--github", url,
+                "--profile", "crypto", "--summary") == 0
+    out = capsys.readouterr().out
+    assert "ECDAT GitHub scan complete" in out and sha[:12] in out
+    assert _run(monkeypatch, tmp_path, "scan", "ignored", "--github",
+                "https://evil.com/o/r") == 2
+    assert "only github.com" in capsys.readouterr().err
+    assert _run(monkeypatch, tmp_path, "scan", "ignored", "--github", url,
+                "--profile", "nope") == 2
+    assert "unknown profile" in capsys.readouterr().err

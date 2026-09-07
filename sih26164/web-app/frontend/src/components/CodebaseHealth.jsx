@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { arr, num, obj, str } from "../lib/report.js";
+import { triageScopeFor } from "./RepoPanel.jsx";
+import TriageControl from "./TriageControl.jsx";
 
 const CONSTRAINTS = ["preserve-public-apis", "minimize-files", "preserve-tests", "require-tests", "no-new-dependencies", "minimize-behavior-change"];
 
-function FindingRow({ finding, analysisId }) {
+function FindingRow({ finding, analysisId, report }) {
   const [open, setOpen] = useState(false);
   const [option, setOption] = useState("");
   const [constraints, setConstraints] = useState([]);
@@ -48,6 +50,10 @@ function FindingRow({ finding, analysisId }) {
           <p><b>Impact:</b> {str(f.impact)} · <b>Effort:</b> {str(f.effort)} · <b>Risk:</b> {str(f.risk)} · <b>Security risk:</b> {str(f.security_risk, "NONE")}</p>
           <p><b>Verification:</b> {str(f.verification)}</p>
           <p><b>Rationale:</b> {str(f.rationale)}</p>
+          {str(f.triage?.status, "open") !== "open" ? (
+            <p><b>Triage:</b> {str(f.triage?.status)}{str(f.triage?.reason) ? ` (${str(f.triage?.reason)})` : ""}</p>
+          ) : null}
+          <TriageControl scope={triageScopeFor(report)} fp={str(f.fp)} current={f.triage} />
           <div>
             <b>Remediation options (you choose):</b>
             {options.map((o) => (
@@ -82,7 +88,7 @@ function FindingRow({ finding, analysisId }) {
   );
 }
 
-export default function CodebaseHealth({ analysis }) {
+export default function CodebaseHealth({ analysis, report }) {
   const a = obj(analysis);
   const findings = arr(a.findings);
   const health = obj(a.health);
@@ -107,7 +113,7 @@ export default function CodebaseHealth({ analysis }) {
       </div>
       <div>
         {visible.slice(0, 100).map((f) => (
-          <FindingRow key={f.id} finding={f} analysisId={str(a.analysis_id)} />
+          <FindingRow key={f.id} finding={f} analysisId={str(a.analysis_id)} report={report} />
         ))}
         {visible.length > 100 ? <p className="section-sub">Showing 100 of {visible.length} — refine the filter.</p> : null}
       </div>

@@ -49,6 +49,12 @@ npm install && npm run dev  # :5173, API proxied to :8000
 
 Runtime analysis and provider Q&A are explicit opt-ins:
 `agent scan <target> --runtime`, `agent explain <target> --agent <name> -- <provider args>`.
+
+Public GitHub repositories can be scanned statically (never executed):
+`agent scan ignored --github https://github.com/owner/repo --ref main --profile full --summary`,
+or via the web UI source picker, or `POST /scans` with
+`{"source": {"type": "github", "url": "...", "ref": "main"}, "profile": "full"}`.
+See `sih26164/web-app/docs/ECDAT_GITHUB_SCAN_ARCHITECTURE.md`.
 Details per app in their READMEs; end-to-end demo path in `sih26164/web-app/docs/DEMO.md`.
 
 ## Docs

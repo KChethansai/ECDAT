@@ -6,6 +6,8 @@ import InventoryTable from "./components/InventoryTable.jsx";
 import FindingsExplorer from "./components/FindingsExplorer.jsx";
 import CodebaseHealth from "./components/CodebaseHealth.jsx";
 import FindingDrawer from "./components/FindingDrawer.jsx";
+import HistoryPanel from "./components/HistoryPanel.jsx";
+import RepoPanel from "./components/RepoPanel.jsx";
 import KnowledgeExplorer from "./components/KnowledgeExplorer.jsx";
 import MigrationWorkspace from "./components/MigrationWorkspace.jsx";
 import { AnalystSummary, ExportPanel, RecommendationsList, RelationshipsSection } from "./components/RecommendationsPanel.jsx";
@@ -20,6 +22,12 @@ export default function App() {
   const [validationUrls, setValidationUrls] = useState("");
   const [allowNonLoopback, setAllowNonLoopback] = useState(false);
   const [codeAnalysis, setCodeAnalysis] = useState(false);
+  const [source, setSource] = useState("local");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [githubRef, setGithubRef] = useState("");
+  const [profile, setProfile] = useState("full");
+  const [elapsed, setElapsed] = useState(0);
+  const abortRef = useRef(null);
   const [report, setReport] = useState(null);
   const [scanId, setScanId] = useState("");
   const [scannedTarget, setScannedTarget] = useState("");
@@ -117,18 +125,38 @@ export default function App() {
   async function runScan(event) {
     event?.preventDefault();
     const cleanTarget = target.trim() || "sample";
+    const isGithub = source === "github";
+    if (isGithub && !githubUrl.trim()) {
+      setError("Enter a GitHub repository URL (https://github.com/owner/repository).");
+      return;
+    }
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const startedAt = Date.now();
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000);
     setLoading(true);
     setError("");
     try {
       const known = Array.isArray(health.scanners) && health.scanners.length > 0 ? health.scanners.filter((s) => s !== "runtime") : FALLBACK_SCANNERS;
       const endpoints = validationUrls.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+      const payload = isGithub
+        ? { scanners: known, runtime, validate, validation_targets: endpoints,
+            validation_policy: allowNonLoopback ? { allow_non_loopback: true } : null,
+            code_analysis: codeAnalysis,
+            source: { type: "github", url: githubUrl.trim(),
+                      ...(githubRef.trim() ? { ref: githubRef.trim() } : {}) },
+            profile }
+        : { target: cleanTarget, scanners: known, runtime, validate,
+            validation_targets: endpoints,
+            validation_policy: allowNonLoopback ? { allow_non_loopback: true } : null,
+            code_analysis: codeAnalysis };
       const response = await fetch("/scans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: cleanTarget, scanners: known, runtime, validate,
-          validation_targets: endpoints,
-          validation_policy: allowNonLoopback ? { allow_non_loopback: true } : null,
-          code_analysis: codeAnalysis }),
+        body: JSON.stringify(payload),
+        signal: controller.signal,
       });
       if (!response.ok) {
         const text = await response.text();
@@ -137,19 +165,48 @@ export default function App() {
       const body = await response.json();
       setReport(body.report || null);
       setScanId(str(body.id, ""));
-      setScannedTarget(str(body.report?.metadata?.scanTarget, cleanTarget));
+      setScannedTarget(str(body.report?.metadata?.scanTarget, isGithub ? githubUrl.trim() : cleanTarget));
       setSelected(null);
       checkHealth();
     } catch (err) {
-      setError(err instanceof Error ? err.message : formatNetworkError(err));
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("Scan cancelled. The server may still finish; no state was saved locally.");
+      } else {
+        setError(err instanceof Error ? err.message : formatNetworkError(err));
+      }
     } finally {
+      clearInterval(timer);
       setLoading(false);
     }
+  }
+
+  function cancelScan() {
+    if (abortRef.current) abortRef.current.abort();
   }
 
   function handleDownload() {
     if (!report) return;
     downloadJson(report, `ecdat-cbom-style-${scanId || "report"}.json`);
+  }
+
+  async function handleSarif() {
+    if (!report || !scanId) return;
+    setError("");
+    try {
+      const response = await fetch(`/reports/${encodeURIComponent(scanId)}/sarif`);
+      if (!response.ok) throw new Error(formatScanError(response.status, await response.text()));
+      const blob = new Blob([await response.text()], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `ecdat-${scanId}.sarif`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : formatNetworkError(err));
+    }
   }
 
   const runtimeProv = obj(report?.metadata?.runtimeProvenance);
@@ -211,7 +268,13 @@ export default function App() {
             </div>
           </div>
 
-          <ScanCommandBar target={target} onTarget={setTarget} runtime={runtime} onRuntime={setRuntime} loading={loading} onSubmit={runScan} targetRef={targetRef} validate={validate} onValidate={setValidate} validationUrls={validationUrls} onValidationUrls={setValidationUrls} allowNonLoopback={allowNonLoopback} onAllowNonLoopback={setAllowNonLoopback} codeAnalysis={codeAnalysis} onCodeAnalysis={setCodeAnalysis} />
+          <ScanCommandBar target={target} onTarget={setTarget} runtime={runtime} onRuntime={setRuntime} loading={loading} onSubmit={runScan} targetRef={targetRef} validate={validate} onValidate={setValidate} validationUrls={validationUrls} onValidationUrls={setValidationUrls} allowNonLoopback={allowNonLoopback} onAllowNonLoopback={setAllowNonLoopback} codeAnalysis={codeAnalysis} onCodeAnalysis={setCodeAnalysis} source={source} onSource={setSource} githubUrl={githubUrl} onGithubUrl={setGithubUrl} githubRef={githubRef} onGithubRef={setGithubRef} profile={profile} onProfile={setProfile} />
+          {loading ? (
+            <p role="status" className="section-sub">
+              Working — {elapsed}s elapsed{source === "github" ? " (acquiring repository, then analyzing; large repos take minutes)" : ""}.{" "}
+              <button type="button" className="btn btn-secondary" onClick={cancelScan}>Cancel</button>
+            </p>
+          ) : null}
           <Pipeline hasReport={hasReport} loading={loading} />
 
           {loading ? <LoadingStages active={stage} runtime={runtime} /> : null}
@@ -273,7 +336,9 @@ export default function App() {
               </div>
 
               <InventoryTable inventory={inventory} />
-              {report.codeAnalysis ? <CodebaseHealth analysis={report.codeAnalysis} /> : null}
+              {report.codeAnalysis ? <CodebaseHealth analysis={report.codeAnalysis} report={report} /> : null}
+              <RepoPanel report={report} scanId={scanId} onSarif={handleSarif} />
+              <HistoryPanel />
               <AnalystSummary report={report} familyCount={inventory.length} runtimeCount={runtimeCount} immediateCount={immediateCount} total={num(summary.total)} />
 
               <div id="findings">

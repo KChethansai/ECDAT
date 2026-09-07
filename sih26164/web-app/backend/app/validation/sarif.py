@@ -13,6 +13,11 @@ def _rule_id(finding: dict) -> str:
 
 def to_sarif(report: dict, validations: list[dict] | None = None) -> dict:
     components = report.get("components", []) if isinstance(report, dict) else []
+    source = report.get("source") or {} if isinstance(report, dict) else {}
+    source_label = ""
+    if isinstance(source, dict) and source.get("type") == "github":
+        source_label = (f"{source.get('owner')}/{source.get('repo')}"
+                        f"@{(source.get('sha') or '')[:12]}")
     by_finding: dict[str, list[dict]] = {}
     for res in validations or []:
         if res.get("finding_id"):
@@ -34,6 +39,8 @@ def to_sarif(report: dict, validations: list[dict] | None = None) -> dict:
             "finding_id": row.get("id"), "severity": sev,
             "validationStatus": row.get("validationStatus", "STATIC_ONLY"),
             "is_mock": bool(row.get("is_mock"))}}
+        if source_label:
+            props["ecdat"]["source"] = source_label
         for res in by_finding.get(row.get("id", ""), [])[:5]:
             props.setdefault("validations", []).append({
                 "validation_id": res.get("validation_id"), "status": res.get("status"),
@@ -44,7 +51,16 @@ def to_sarif(report: dict, validations: list[dict] | None = None) -> dict:
         results.append({"ruleId": rid, "level": SEVERITY_LEVEL.get(sev, "note"),
                         "message": {"text": str(row.get("rationale") or row.get("algorithm"))[:1000]},
                         "locations": [loc], "properties": props})
-    return {"version": "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-            "runs": [{"tool": {"driver": {"name": "ECDAT", "version": "0.1.0",
+    run: dict = {"tool": {"driver": {"name": "ECDAT", "version": "0.1.0",
                                            "rules": sorted(rules.values(), key=lambda r: r["id"])}},
-                      "results": results}]}
+                   "results": results}
+    source = report.get("source") or {} if isinstance(report, dict) else {}
+    if isinstance(source, dict) and source.get("type") == "github" and source.get("sha"):
+        run["versionControlProvenance"] = [{
+            "repositoryUri": source.get("canonical_url", ""),
+            "revisionId": source.get("sha", ""),
+            "properties": {"ecdat": {
+                "ref_requested": source.get("ref_requested", ""),
+                "profile": source.get("profile", "")}}}]
+    return {"version": "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "runs": [run]}

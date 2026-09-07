@@ -104,6 +104,8 @@ def cmd_verify(args) -> int:
 
 
 def cmd_scan(args) -> int:
+    if args.github:
+        return cmd_scan_github(args)
     try:
         result = scan.scan(_mem(args), args.target, args.data_years, args.migration_years,
                            args.qrqc_years_left, runtime=args.runtime,
@@ -151,6 +153,36 @@ def cmd_scan(args) -> int:
                 print(f"  validation blocked: {len(vsum['blocked_targets'])} target(s)")
         print(f"  durable summary: {result['memoryNote']}")
         print("  CBOM-style report: stdout with default JSON output")
+    else:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_scan_github(args) -> int:
+    """Scan a public GitHub repository (static analysis only, never executed)."""
+    try:
+        result = scan.scan_github(_mem(args), args.github, ref=args.ref,
+                                  profile=args.profile or "full",
+                                  data_years=args.data_years,
+                                  migration_years=args.migration_years,
+                                  qrqc_years_left=args.qrqc_years_left,
+                                  runtime=args.runtime, validate=args.validate)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    report = result["report"]
+    source = report.get("source", {})
+    if args.summary:
+        print("ECDAT GitHub scan complete (static only; repository code never executed)")
+        print(f"  repository: {source.get('owner')}/{source.get('repo')}")
+        print(f"  ref: {source.get('ref_requested') or '(default)'} -> "
+              f"{(source.get('sha') or '')[:12]}")
+        print(f"  profile: {source.get('profile', '')}")
+        print(f"  findings: {report['summary']['real']} real, {report['summary']['mock']} mock")
+        print(f"  durable summary: {result['memoryNote']}")
     else:
         print(json.dumps(result, indent=2, sort_keys=True))
     return 0
@@ -343,6 +375,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--code-analysis", action="store_true",
                     help="explicit opt-in: deterministic static codebase analysis "
                          "(dead code, duplication, complexity, efficiency, deps, structure)")
+    sp.add_argument("--github", default=None,
+                    help="scan a public GitHub repository URL instead of a local target "
+                         "(static only; repository code is never executed)")
+    sp.add_argument("--ref", default=None,
+                    help="branch, tag, or full commit SHA (default: repository default branch)")
+    sp.add_argument("--profile", default=None,
+                    help="scan profile: quick|crypto|codebase|full|full-validation")
     sp.set_defaults(fn=cmd_scan)
     ap2 = sub.add_parser("analyze", help="deterministic codebase analysis (no AI, no execution)")
     ap2.add_argument("target")

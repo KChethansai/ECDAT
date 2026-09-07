@@ -102,6 +102,9 @@ def run_scan(target: str | Path, scanners: list[str] | None = None,
     # Advisory knowledge context only: never alters evidence, severity,
     # priority, counts, migration, or CBOM inventory (see knowledge/__init__.py).
     report = annotate_report(report)
+    from .sources import stamp_fps as _stamp_fps
+
+    _stamp_fps(report)
     _stamp_validation(report, validate=validate, validation_targets=validation_targets,
                       validation_policy=validation_policy)
     if code_analysis:
@@ -112,6 +115,106 @@ def run_scan(target: str | Path, scanners: list[str] | None = None,
         except (ValueError, FileNotFoundError) as exc:
             report["codeAnalysis"] = {"error": str(exc), "findings": [], "health": {}}
     return report
+
+
+def run_github_scan(github_url: str, ref: str | None = None, profile: str = "full",
+                    scanners: list[str] | None = None,
+                    data_years: float = 10.0, migration_years: float = 3.0,
+                    qrqc_years_left: float = 10.0,
+                    runtime: bool = False, status_overrides: dict | None = None,
+                    validate: bool = False, validation_targets: object = None,
+                    validation_policy: object = None, code_analysis: bool = False,
+                    code_categories: list[str] | None = None,
+                    acquisition_policy: object = None) -> dict:
+    """Acquire a public GitHub repo into an isolated workspace, then run_scan.
+
+    The GitHub path is a source adapter only: acquisition, relativization, and
+    source metadata wrap the EXISTING pipeline untouched. The temporary
+    workspace is always cleaned up; tmp paths never leak into the report.
+    """
+    import time as _time
+    from pathlib import Path as _Path
+
+    from .sources import (AcquisitionError, AcquisitionPolicy, candidate_archives,
+                          extract_archive, fetch_bytes, isolated_workspace,
+                          parse_github_url, relativize_report, resolve_profile,
+                          resolve_ref, topdir_sha)
+
+    started = _time.time()
+    parsed = parse_github_url(github_url)  # ValueError propagates (caller maps to 400)
+    policy = (acquisition_policy if isinstance(acquisition_policy, AcquisitionPolicy)
+              else AcquisitionPolicy(acquisition_policy))
+    # Fail fast on unknown profiles before any network (resolve_profile raises).
+    prof = resolve_profile(profile, scanners, code_analysis, validate)
+    deadline = _time.monotonic() + policy.total_deadline_s
+    wanted_ref = ref if ref is not None else parsed["ref"]
+    wanted_kind = None if ref is not None else parsed["ref_kind"]
+    if wanted_ref is not None and (not isinstance(wanted_ref, str) or not wanted_ref
+                                   or len(wanted_ref) > 256):
+        raise ValueError("invalid ref")
+    owner, repo = parsed["owner"], parsed["repo"]
+    try:
+        resolved = resolve_ref(owner, repo, wanted_ref, wanted_kind, policy, deadline)
+        candidates = candidate_archives(owner, repo, resolved)
+        body, final_url, sha = b"", "", resolved.get("sha", "")
+        last_error = "repository or ref not found (404)"
+        for candidate in candidates:
+            try:
+                body, final_url = fetch_bytes(candidate, policy, deadline)
+            except AcquisitionError as exc:
+                if "404" in str(exc):
+                    last_error = str(exc)
+                    continue
+                raise
+            break
+        else:
+            raise AcquisitionError(last_error)
+        with isolated_workspace() as workspace:
+            topdir, skipped_links = extract_archive(body, workspace, policy)
+            archive_sha = topdir_sha(topdir, repo)
+            if archive_sha and sha and archive_sha != sha:
+                raise AcquisitionError("archive identity does not match the resolved commit")
+            if archive_sha:
+                sha = archive_sha
+            if not sha:
+                raise AcquisitionError(
+                    "could not resolve the ref to a commit SHA (GitHub API unreachable and "
+                    "branch archives do not carry the SHA). Retry later or supply the full "
+                    "40-character commit SHA as the ref.")
+            resolved["sha"] = sha
+            # Scan the archive topdir as root so it never leaks into finding paths.
+            scan_root = _Path(workspace) / topdir
+            if code_categories is not None:
+                prof["code_categories"] = code_categories
+                prof["code_analysis"] = True
+            report = run_scan(scan_root, prof["scanners"], data_years, migration_years,
+                              qrqc_years_left, runtime=runtime,
+                              status_overrides=status_overrides, validate=prof["validate"],
+                              validation_targets=validation_targets,
+                              validation_policy=validation_policy,
+                              code_analysis=prof["code_analysis"],
+                              code_categories=prof["code_categories"])
+            relativize_report(report, scan_root, owner, repo, sha)
+            report["metadata"]["scanTarget"] = f"github:{owner}/{repo}@{sha[:12]}"
+            report["source"] = {
+                "type": "github", "host": "github.com", "owner": owner, "repo": repo,
+                "canonical_url": parsed["canonical_url"],
+                "ref_requested": resolved.get("requested_ref", ""),
+                "ref_kind": resolved.get("ref_kind", ""),
+                "sha": sha, "default_branch": resolved.get("default_branch", ""),
+                "visibility": resolved.get("visibility", ""),
+                "resolution": resolved.get("via", ""),
+                "profile": prof["profile"], "archive_bytes": len(body),
+                "archive_url": final_url[:512],
+                "skipped_symlinks": skipped_links,
+                "acquisition": policy.summary(),
+                "duration_s": round(_time.time() - started, 2),
+            }
+            return report
+    except (AcquisitionError, ValueError):
+        raise
+    except OSError as exc:
+        raise AcquisitionError(f"workspace failure: {type(exc).__name__}")
 
 
 def _stamp_validation(report: dict, validate: bool = False,

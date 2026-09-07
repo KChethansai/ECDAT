@@ -883,3 +883,12 @@ def test_report_carries_intelligence_migration_and_contract():
     assert all("migrationStatus" in c and "evidenceStrength" in c and "related" in c
                for c in report["components"])
     _json.dumps(report)
+
+
+def test_dependency_additional_manifests_use_generic_parser(tmp_path):
+    from app.scanner import DependencyScanner
+
+    (tmp_path / "Gemfile").write_text("source 'https://rubygems.org'\ngem 'openssl', '~> 3.0'\n")
+    (tmp_path / "composer.json").write_text('{"require": {"phpseclib/phpseclib": "^3.0"}}')
+    findings = DependencyScanner().scan(tmp_path)
+    assert any(f.library == "openssl" for f in findings)

@@ -1,7 +1,9 @@
 import React from "react";
 import { IconLock, IconScan } from "./icons.jsx";
 
-export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, loading, onSubmit, targetRef, validate, onValidate, validationUrls, onValidationUrls, allowNonLoopback, onAllowNonLoopback, codeAnalysis, onCodeAnalysis }) {
+const PROFILES = ["quick", "crypto", "codebase", "full", "full-validation"];
+
+export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, loading, onSubmit, targetRef, validate, onValidate, validationUrls, onValidationUrls, allowNonLoopback, onAllowNonLoopback, codeAnalysis, onCodeAnalysis, source, onSource, githubUrl, onGithubUrl, githubRef, onGithubRef, profile, onProfile }) {
   return (
     <form onSubmit={onSubmit} className="cmdbar" aria-label="Scan command center">
       <div className="cmdbar-top" aria-hidden="true">
@@ -13,20 +15,71 @@ export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, l
         <span className="cmdbar-title">ecdat — scan console</span>
       </div>
       <div className="cmdbar-body">
-        <label className="field grow" htmlFor="scan-target">
-          Scan target
-          <input
-            id="scan-target"
-            ref={targetRef}
-            value={target}
-            onChange={(e) => onTarget(e.target.value)}
-            aria-label="Scan target"
-            placeholder="sample or workspace-contained path"
-            autoComplete="off"
-            spellCheck="false"
-            className="mono"
-          />
-        </label>
+        <div className="field" role="radiogroup" aria-label="Scan source">
+          Source
+          <label className="check" htmlFor="src-local">
+            <input id="src-local" type="radio" name="scan-source" checked={source !== "github"} onChange={() => onSource("local")} />
+            Local
+          </label>
+          <label className="check" htmlFor="src-github">
+            <input id="src-github" type="radio" name="scan-source" checked={source === "github"} onChange={() => onSource("github")} />
+            GitHub
+          </label>
+        </div>
+        {source === "github" ? (
+          <>
+            <label className="field grow" htmlFor="github-url">
+              Repository URL
+              <input
+                id="github-url"
+                ref={targetRef}
+                value={githubUrl}
+                onChange={(e) => onGithubUrl(e.target.value)}
+                aria-label="GitHub repository URL"
+                placeholder="https://github.com/owner/repository"
+                autoComplete="off"
+                spellCheck="false"
+                className="mono"
+              />
+            </label>
+            <label className="field" htmlFor="github-ref">
+              Ref
+              <input
+                id="github-ref"
+                value={githubRef}
+                onChange={(e) => onGithubRef(e.target.value)}
+                aria-label="Branch, tag, or commit SHA (empty = default branch)"
+                placeholder="main"
+                autoComplete="off"
+                spellCheck="false"
+                className="mono"
+              />
+            </label>
+            <label className="field" htmlFor="scan-profile">
+              Profile
+              <select id="scan-profile" value={profile} onChange={(e) => onProfile(e.target.value)} aria-label="Scan profile">
+                {PROFILES.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <label className="field grow" htmlFor="scan-target">
+            Scan target
+            <input
+              id="scan-target"
+              ref={targetRef}
+              value={target}
+              onChange={(e) => onTarget(e.target.value)}
+              aria-label="Scan target"
+              placeholder="sample or workspace-contained path"
+              autoComplete="off"
+              spellCheck="false"
+              className="mono"
+            />
+          </label>
+        )}
         <label className="check" htmlFor="runtime-probe" title="Runs the bundled first-party probe under timeout and isolation. Static scans never execute target code.">
           <input id="runtime-probe" type="checkbox" checked={runtime} onChange={(e) => onRuntime(e.target.checked)} aria-label="Run controlled runtime probe" />
           runtime probe
@@ -71,6 +124,7 @@ export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, l
           Static discovery only{runtime ? " + bundled controlled probe (first-party fixture, timeout + isolation)" : " — target code is never executed"}
           {validate ? " + bounded active validation (explicit endpoints, loopback by default, observation only)" : ""}. Paths are
           jailed to the workspace; <code className="evidence">..</code> escapes and symlinks are rejected.
+          {source === "github" ? " Repository contents are treated as untrusted input and are statically analyzed without executing repository code." : ""}
         </span>
       </p>
     </form>
