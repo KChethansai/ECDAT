@@ -4,7 +4,9 @@ import ScanCommandBar from "./components/ScanCommandBar.jsx";
 import { ExecutiveMetrics, ExposurePanel, FixFirstCard, RiskOverview } from "./components/Metrics.jsx";
 import InventoryTable from "./components/InventoryTable.jsx";
 import FindingsExplorer from "./components/FindingsExplorer.jsx";
+import CodebaseHealth from "./components/CodebaseHealth.jsx";
 import FindingDrawer from "./components/FindingDrawer.jsx";
+import KnowledgeExplorer from "./components/KnowledgeExplorer.jsx";
 import MigrationWorkspace from "./components/MigrationWorkspace.jsx";
 import { AnalystSummary, ExportPanel, RecommendationsList, RelationshipsSection } from "./components/RecommendationsPanel.jsx";
 import Pipeline from "./components/Pipeline.jsx";
@@ -14,6 +16,10 @@ import { FALLBACK_SCANNERS, arr, downloadJson, formatNetworkError, formatScanErr
 export default function App() {
   const [target, setTarget] = useState("sample");
   const [runtime, setRuntime] = useState(false);
+  const [validate, setValidate] = useState(false);
+  const [validationUrls, setValidationUrls] = useState("");
+  const [allowNonLoopback, setAllowNonLoopback] = useState(false);
+  const [codeAnalysis, setCodeAnalysis] = useState(false);
   const [report, setReport] = useState(null);
   const [scanId, setScanId] = useState("");
   const [scannedTarget, setScannedTarget] = useState("");
@@ -115,10 +121,14 @@ export default function App() {
     setError("");
     try {
       const known = Array.isArray(health.scanners) && health.scanners.length > 0 ? health.scanners.filter((s) => s !== "runtime") : FALLBACK_SCANNERS;
+      const endpoints = validationUrls.split(/\n+/).map((s) => s.trim()).filter(Boolean);
       const response = await fetch("/scans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: cleanTarget, scanners: known, runtime }),
+        body: JSON.stringify({ target: cleanTarget, scanners: known, runtime, validate,
+          validation_targets: endpoints,
+          validation_policy: allowNonLoopback ? { allow_non_loopback: true } : null,
+          code_analysis: codeAnalysis }),
       });
       if (!response.ok) {
         const text = await response.text();
@@ -186,10 +196,22 @@ export default function App() {
                       : "static only"}
                 </b>
               </span>
+              <span className="fact">
+                validation:{" "}
+                <b>
+                  {hasReport
+                    ? report.validationSummary
+                      ? `${num(report.validationSummary.total)} check(s)`
+                      : "static only"
+                    : validate
+                      ? "probes will run"
+                      : "static only"}
+                </b>
+              </span>
             </div>
           </div>
 
-          <ScanCommandBar target={target} onTarget={setTarget} runtime={runtime} onRuntime={setRuntime} loading={loading} onSubmit={runScan} targetRef={targetRef} />
+          <ScanCommandBar target={target} onTarget={setTarget} runtime={runtime} onRuntime={setRuntime} loading={loading} onSubmit={runScan} targetRef={targetRef} validate={validate} onValidate={setValidate} validationUrls={validationUrls} onValidationUrls={setValidationUrls} allowNonLoopback={allowNonLoopback} onAllowNonLoopback={setAllowNonLoopback} codeAnalysis={codeAnalysis} onCodeAnalysis={setCodeAnalysis} />
           <Pipeline hasReport={hasReport} loading={loading} />
 
           {loading ? <LoadingStages active={stage} runtime={runtime} /> : null}
@@ -224,7 +246,8 @@ export default function App() {
                   </>
                 ) : null}{" "}
                 · {num(summary.real)} real finding(s)
-                {runtimeProv.available ? ` · runtime: ${runtimeProv.events || 0} observation(s) (controlled probe)` : runtime ? " · runtime: unavailable" : ""} ·
+                {runtimeProv.available ? ` · runtime: ${runtimeProv.events || 0} observation(s) (controlled probe)` : runtime ? " · runtime: unavailable" : ""}
+                {report.validationSummary ? ` · validation: ${num(report.validationSummary.total)} check(s) (${Object.entries(report.validationSummary.byStatus || {}).map(([k, v]) => `${k}=${v}`).join(", ")})` : ""} ·
                 sources: {arr(report.metadata?.scannerSources).join(", ") || "—"}
               </p>
 
@@ -250,6 +273,7 @@ export default function App() {
               </div>
 
               <InventoryTable inventory={inventory} />
+              {report.codeAnalysis ? <CodebaseHealth analysis={report.codeAnalysis} /> : null}
               <AnalystSummary report={report} familyCount={inventory.length} runtimeCount={runtimeCount} immediateCount={immediateCount} total={num(summary.total)} />
 
               <div id="findings">
@@ -271,8 +295,9 @@ export default function App() {
               </div>
 
               <RelationshipsSection inventory={inventory} byId={byId} />
+              <KnowledgeExplorer report={report} components={components} />
               <MigrationWorkspace migration={migration} />
-              <RecommendationsList components={components} />
+              <RecommendationsList components={components} report={report} />
               <ExportPanel report={report} scanId={scanId} onDownload={handleDownload} />
             </div>
           ) : null}
@@ -283,7 +308,7 @@ export default function App() {
           </footer>
         </main>
       </div>
-      <FindingDrawer finding={selected} byId={byId} onClose={() => setSelected(null)} />
+      <FindingDrawer finding={selected} byId={byId} report={report} onClose={() => setSelected(null)} />
     </>
   );
 }

@@ -145,3 +145,74 @@ def test_scan_covers_all_real_scanner_provenances(monkeypatch, tmp_path, capsys)
     assert {"source", "binary", "container", "dependency", "hsm", "cloud"} <= {
         row["scanner"] for row in report["components"]}
     assert report["summary"]["mock"] == 0
+
+
+def test_scan_validate_dry_run_and_validate_command(monkeypatch, tmp_path, capsys):
+    sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
+    assert _run(monkeypatch, tmp_path, "scan", str(sample), "--summary",
+                "--validate", "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "validation:" in out and "[DRY RUN]" in out
+    sarif_out = tmp_path / "out.sarif"
+    assert _run(monkeypatch, tmp_path, "validate", str(sample), "--dry-run",
+                "--sarif-out", str(sarif_out)) == 0
+    assert "ECDAT validation complete [DRY RUN]" in capsys.readouterr().out
+    doc = json.loads(sarif_out.read_text())
+    assert doc["version"] == "2.1.0" and doc["runs"][0]["tool"]["driver"]["name"] == "ECDAT"
+
+
+def test_validate_fail_on_gates(monkeypatch, tmp_path, capsys):
+    sample = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
+    # dry run produces no CONFIRMED results -> gate passes; critical findings exist -> gate fails
+    assert _run(monkeypatch, tmp_path, "validate", str(sample), "--dry-run",
+                "--fail-on", "confirmed") == 0
+    capsys.readouterr()
+    assert _run(monkeypatch, tmp_path, "validate", str(sample), "--dry-run",
+                "--fail-on", "critical") == 1
+    assert "gate:" in capsys.readouterr().out
+
+
+def test_analyze_summary_and_remediate_verify_flow(monkeypatch, tmp_path, capsys):
+    # Filesystem jail applies to analysis too: use a workspace-contained target.
+    repo = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "app" / "code_analysis"
+    assert _run(monkeypatch, tmp_path, "analyze", str(repo), "--dead-code",
+                "--summary") == 0
+    out = capsys.readouterr().out
+    assert "ECDAT code analysis complete (deterministic, no AI)" in out
+    analysis_file = tmp_path / "analysis.json"
+    assert _run(monkeypatch, tmp_path, "analyze", str(repo),
+                "--out", str(analysis_file)) == 0
+    capsys.readouterr()
+    analysis = json.loads(analysis_file.read_text())
+    assert analysis["findings"], "analyzer self-scan should yield findings"
+    target = analysis["findings"][0]
+    plan_file = tmp_path / "plan.json"
+    assert _run(monkeypatch, tmp_path, "remediate", "--analysis", str(analysis_file),
+                "--finding", target["id"], "--option", "delete",
+                "--constraint", "preserve-tests", "--out", str(plan_file)) == 0
+    assert f"plan {json.loads(plan_file.read_text())['plan_id']} written" in capsys.readouterr().out
+    assert _run(monkeypatch, tmp_path, "remediate", "--analysis", str(analysis_file),
+                "--finding", target["id"], "--option", "nope") == 2
+    capsys.readouterr()
+    fixed = tmp_path / "fixed.json"
+    fixed.write_text(json.dumps({"findings": []}))
+    assert _run(monkeypatch, tmp_path, "verify-fix", "--before", str(analysis_file),
+                "--after", str(fixed), "--touched", "dead.py") == 0
+    assert "verification: RESOLVED" in capsys.readouterr().out
+
+
+def test_remediate_rejects_malformed_analysis_and_bad_output(monkeypatch, tmp_path, capsys):
+    bad = tmp_path / "bad.json"
+    bad.write_text("[1, 2, 3]")
+    assert _run(monkeypatch, tmp_path, "remediate", "--analysis", str(bad),
+                "--finding", "x", "--option", "delete") == 2
+    assert "expected a JSON object" in capsys.readouterr().err
+    broken = tmp_path / "broken.json"
+    broken.write_text("{oops")
+    assert _run(monkeypatch, tmp_path, "verify-fix", "--before", str(broken),
+                "--after", str(broken)) == 2
+    capsys.readouterr()
+    repo = WORKSPACE_ROOT / "sih26164" / "web-app" / "backend" / "samples" / "vuln_sample"
+    assert _run(monkeypatch, tmp_path, "analyze", str(repo),
+                "--out", "/definitely/missing/dir/out.json") == 1
+    assert "cannot write output" in capsys.readouterr().err

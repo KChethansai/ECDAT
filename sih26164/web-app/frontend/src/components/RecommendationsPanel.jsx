@@ -105,8 +105,9 @@ function JsonDialog({ report, filename, onClose }) {
   );
 }
 
-export function RecommendationsList({ components }) {
+export function RecommendationsList({ components, report }) {
   const groups = groupRecommendations(components);
+  const ctxFor = (direction) => (report?.recommendationContext || []).find((e) => e.direction === direction) || null;
   if (groups.length === 0) {
     return (
       <section className="section" aria-label="Recommendations">
@@ -154,6 +155,23 @@ export function RecommendationsList({ components }) {
               <b>Evidence</b>
               <span className="mono">{g.algorithms.join(", ") || "—"}</span> across {g.findings.length} finding(s)
             </p>
+            {(() => {
+              const ctx = ctxFor(g.direction);
+              if (!ctx || ctx.considerations.length === 0) return null;
+              return (
+                <div className="ev" style={{ borderTop: "1px dashed var(--line)", paddingTop: 7 }}>
+                  <b>Analyst context (advisory)</b>
+                  <ul style={{ margin: "4px 0", paddingLeft: 17 }}>
+                    {ctx.considerations.map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                  {ctx.skills.length > 0 ? (
+                    <span className="cell-sub">Knowledge: {ctx.skills.map((s) => (report?.knowledgeBase || []).find((k) => k.id === s)?.name || s).join(" · ")}</span>
+                  ) : null}
+                </div>
+              );
+            })()}
             {g.guidance ? <p className="disclaimer" style={{ marginTop: 2 }}>{g.guidance}</p> : null}
           </article>
         ))}

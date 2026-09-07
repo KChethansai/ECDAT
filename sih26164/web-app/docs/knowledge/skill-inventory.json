@@ -1,0 +1,1108 @@
+{
+ "inventory_version": 1,
+ "generated_at": "2026-09-06",
+ "count": 32,
+ "skills": [
+  {
+   "id": "crypto-audit",
+   "name": "Cryptographic audit methodology",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "performing-cryptographic-audit-of-application",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "RSA",
+     "DSA",
+     "DH",
+     "ECDSA",
+     "ECDH",
+     "ECC",
+     "AES",
+     "DES",
+     "3DES",
+     "RC4",
+     "BLOWFISH",
+     "MD5",
+     "SHA-1",
+     "SHA-2",
+     "SHA-3",
+     "HMAC",
+     "KDF",
+     "SSL",
+     "TLS",
+     "TLS10",
+     "TLS11",
+     "TLS12",
+     "TLS13",
+     "PEM",
+     "KEYFILE",
+     "KEYSIZE",
+     "OPENSSL",
+     "PYCA",
+     "JCA",
+     "WEBCRYPTO",
+     "NACL",
+     "STDLIB"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "dependency",
+     "hsm",
+     "cloud",
+     "runtime"
+    ],
+    "categories": [
+     "symmetric",
+     "asymmetric",
+     "hash",
+     "protocol",
+     "library",
+     "certificate",
+     "key",
+     "dependency"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "pqc-migrate",
+   "name": "Post-quantum migration engineering",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "migrating-to-post-quantum-cryptography",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "RSA",
+     "DSA",
+     "DH",
+     "ECDSA",
+     "ECDH",
+     "ECC",
+     "AES",
+     "SHA-2",
+     "SHA-3",
+     "TLS",
+     "TLS10",
+     "TLS11",
+     "TLS12",
+     "TLS13"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "dependency",
+     "hsm",
+     "cloud",
+     "runtime"
+    ],
+    "categories": [
+     "symmetric",
+     "asymmetric",
+     "hash",
+     "protocol",
+     "library",
+     "certificate",
+     "key"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "pqc-perform",
+   "name": "PQC migration planning checklist",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "performing-post-quantum-cryptography-migration",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "RSA",
+     "DSA",
+     "DH",
+     "ECDSA",
+     "ECDH",
+     "ECC"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "hsm",
+     "cloud",
+     "runtime"
+    ],
+    "categories": [
+     "asymmetric",
+     "certificate",
+     "key"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "rsa-mgmt",
+   "name": "RSA key management (NIST SP 800-57)",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-rsa-key-pair-management",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "RSA",
+     "KEYSIZE",
+     "KEYFILE",
+     "PEM"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "hsm",
+     "cloud",
+     "runtime"
+    ],
+    "categories": [
+     "asymmetric",
+     "key",
+     "certificate"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "aes-rest",
+   "name": "AES data-at-rest construction",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-aes-encryption-for-data-at-rest",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "AES",
+     "DES",
+     "3DES",
+     "RC4",
+     "CHACHA20",
+     "BLOWFISH",
+     "KDF"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "runtime"
+    ],
+    "categories": [
+     "symmetric",
+     "hash"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "ed25519-sig",
+   "name": "Ed25519 signature practice",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-digital-signatures-with-ed25519",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "ECC",
+     "ECDSA"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "dependency",
+     "runtime"
+    ],
+    "categories": [
+     "asymmetric",
+     "library"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "jwt-sign",
+   "name": "JWT signing hardening (RFC 7519)",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-jwt-signing-and-verification",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "HMAC",
+     "RSA",
+     "ECDSA"
+    ],
+    "scanners": [
+     "source",
+     "container",
+     "dependency"
+    ],
+    "categories": [
+     "hash",
+     "asymmetric"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "mtls",
+   "name": "Mutual TLS service authentication",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-mtls-for-zero-trust-services",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "TLS",
+     "TLS12",
+     "TLS13",
+     "PEM",
+     "KEYFILE"
+    ],
+    "scanners": [
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "protocol",
+     "certificate",
+     "key"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "e2ee-msg",
+   "name": "Key-exchange hygiene (forward secrecy)",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-end-to-end-encryption-for-messaging",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "ECDH"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "runtime"
+    ],
+    "categories": [
+     "asymmetric"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "tls13-config",
+   "name": "TLS 1.3 configuration baseline",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "configuring-tls-1-3-for-secure-communications",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "TLS",
+     "TLS10",
+     "TLS11",
+     "TLS12",
+     "TLS13",
+     "SSL"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "protocol"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "tls-assess",
+   "name": "TLS endpoint assessment method",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "performing-ssl-tls-security-assessment",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "TLS",
+     "TLS10",
+     "TLS11",
+     "TLS12",
+     "TLS13",
+     "SSL"
+    ],
+    "scanners": [
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "protocol"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "cert-lifecycle",
+   "name": "Certificate lifecycle management",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "performing-ssl-certificate-lifecycle-management",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "PEM",
+     "KEYFILE",
+     "RSA",
+     "ECDSA",
+     "TLS",
+     "TLS12",
+     "TLS13"
+    ],
+    "scanners": [
+     "source",
+     "binary",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "certificate",
+     "key",
+     "protocol"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "ca-openssl",
+   "name": "PKI CA hierarchy practice",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "configuring-certificate-authority-with-openssl",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "PEM",
+     "RSA",
+     "ECDSA"
+    ],
+    "scanners": [
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "certificate",
+     "key"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "hsm-config",
+   "name": "HSM key-storage practice (PKCS#11)",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "configuring-hsm-for-key-storage",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "PKCS11",
+     "HSM",
+     "RSA",
+     "ECDSA",
+     "AES",
+     "KEYFILE"
+    ],
+    "scanners": [
+     "hsm",
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "key",
+     "library",
+     "asymmetric",
+     "symmetric"
+    ],
+    "usages": [
+     "hsm integration reference"
+    ]
+   }
+  },
+  {
+   "id": "hsm-integrate",
+   "name": "HSM integration via PKCS#11",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "performing-hardware-security-module-integration",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "PKCS11",
+     "HSM",
+     "CLOUDHSM"
+    ],
+    "scanners": [
+     "hsm",
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "key",
+     "library"
+    ],
+    "usages": [
+     "hsm integration reference"
+    ]
+   }
+  },
+  {
+   "id": "envelope-kms",
+   "name": "Envelope encryption with managed KMS",
+   "domain": "cryptography",
+   "tier": 1,
+   "source_skill": "implementing-envelope-encryption-with-aws-kms",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-1 core cryptography",
+   "ecdat_mapping": {
+    "algorithms": [
+     "KMS",
+     "CLOUDHSM",
+     "AES",
+     "KEYVAULT"
+    ],
+    "scanners": [
+     "cloud",
+     "source",
+     "container"
+    ],
+    "categories": [
+     "key",
+     "symmetric",
+     "library"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "sbom-gen",
+   "name": "SBOM generation and use (CycloneDX/SPDX)",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "generating-and-analyzing-sboms",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency",
+     "container"
+    ],
+    "categories": [
+     "dependency",
+     "library"
+    ],
+    "usages": [
+     "dependency reference",
+     "dependency integrity metadata",
+     "container file reference",
+     "container config reference",
+     "container binary reference"
+    ]
+   }
+  },
+  {
+   "id": "slsa-sigstore",
+   "name": "Build provenance verification (SLSA/Sigstore)",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "verifying-build-provenance-with-slsa-sigstore",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency",
+     "container"
+    ],
+    "categories": [
+     "dependency",
+     "library"
+    ],
+    "usages": [
+     "dependency reference",
+     "container file reference",
+     "container binary reference"
+    ]
+   }
+  },
+  {
+   "id": "sigstore-sign",
+   "name": "Software signing with Sigstore",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "implementing-sigstore-for-software-signing",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency",
+     "container"
+    ],
+    "categories": [
+     "dependency",
+     "library"
+    ],
+    "usages": [
+     "dependency reference",
+     "container file reference"
+    ]
+   }
+  },
+  {
+   "id": "code-sign",
+   "name": "Artifact code signing",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "implementing-code-signing-for-artifacts",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": [
+     "RSA",
+     "ECDSA",
+     "ECC",
+     "PEM"
+    ],
+    "scanners": [
+     "dependency",
+     "container"
+    ],
+    "categories": [
+     "asymmetric",
+     "certificate",
+     "dependency"
+    ],
+    "usages": [
+     "dependency reference",
+     "container file reference"
+    ]
+   }
+  },
+  {
+   "id": "cosign-image",
+   "name": "Container image signing (cosign)",
+   "domain": "container",
+   "tier": 2,
+   "source_skill": "implementing-image-provenance-verification-with-cosign",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "container"
+    ],
+    "categories": [
+     "dependency",
+     "library",
+     "certificate",
+     "key"
+    ],
+    "usages": [
+     "container file reference",
+     "container config reference",
+     "container binary reference"
+    ]
+   }
+  },
+  {
+   "id": "in-toto",
+   "name": "Supply-chain layout attestation (in-toto/SLSA)",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "implementing-supply-chain-security-with-in-toto",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "container",
+     "dependency"
+    ],
+    "categories": [
+     "dependency"
+    ],
+    "usages": [
+     "container file reference",
+     "dependency reference"
+    ]
+   }
+  },
+  {
+   "id": "dep-confusion",
+   "name": "Dependency-confusion defenses",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "detecting-dependency-confusion",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency"
+    ],
+    "categories": [
+     "dependency"
+    ],
+    "usages": [
+     "dependency reference",
+     "dependency integrity metadata"
+    ]
+   }
+  },
+  {
+   "id": "typosquat",
+   "name": "Typosquat detection (npm/PyPI)",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "detecting-typosquatting-packages-in-npm-pypi",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency"
+    ],
+    "categories": [
+     "dependency"
+    ],
+    "usages": [
+     "dependency reference"
+    ]
+   }
+  },
+  {
+   "id": "sbom-vuln",
+   "name": "SBOM vulnerability correlation",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "analyzing-sbom-for-supply-chain-vulnerabilities",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency",
+     "container"
+    ],
+    "categories": [
+     "dependency",
+     "library"
+    ],
+    "usages": [
+     "dependency reference",
+     "dependency integrity metadata",
+     "container file reference"
+    ]
+   }
+  },
+  {
+   "id": "sca-snyk",
+   "name": "SCA dependency scanning practice",
+   "domain": "supply-chain",
+   "tier": 2,
+   "source_skill": "performing-sca-dependency-scanning-with-snyk",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "dependency"
+    ],
+    "categories": [
+     "dependency"
+    ],
+    "usages": [
+     "dependency reference"
+    ]
+   }
+  },
+  {
+   "id": "gcp-binauthz",
+   "name": "Deploy-time attestation gates (Binary Authorization)",
+   "domain": "cloud",
+   "tier": 2,
+   "source_skill": "implementing-gcp-binary-authorization",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "container"
+    ],
+    "categories": [
+     "dependency"
+    ],
+    "usages": [
+     "container file reference",
+     "container config reference"
+    ]
+   }
+  },
+  {
+   "id": "vault-secrets",
+   "name": "Secrets management with Vault",
+   "domain": "cloud",
+   "tier": 2,
+   "source_skill": "implementing-secrets-management-with-vault",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": [
+     "ENV-SECRET",
+     "KEYFILE",
+     "KMS",
+     "KEYVAULT"
+    ],
+    "scanners": [
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "key",
+     "dependency"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "registry-images",
+   "name": "Container registry hygiene",
+   "domain": "container",
+   "tier": 2,
+   "source_skill": "securing-container-registry-images",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": "context-only (scanner/category/usage)",
+    "scanners": [
+     "container"
+    ],
+    "categories": [
+     "dependency",
+     "library",
+     "certificate",
+     "key"
+    ],
+    "usages": [
+     "container file reference",
+     "container config reference",
+     "container binary reference"
+    ]
+   }
+  },
+  {
+   "id": "gitleaks",
+   "name": "Secret scanning with Gitleaks",
+   "domain": "devsecops",
+   "tier": 2,
+   "source_skill": "implementing-secret-scanning-with-gitleaks",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": [
+     "ENV-SECRET",
+     "KEYFILE",
+     "PEM"
+    ],
+    "scanners": [
+     "source",
+     "container"
+    ],
+    "categories": [
+     "key",
+     "certificate"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "secrets-cicd",
+   "name": "Secrets scanning in CI/CD",
+   "domain": "devsecops",
+   "tier": 2,
+   "source_skill": "implementing-secrets-scanning-in-ci-cd",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": [
+     "ENV-SECRET",
+     "KEYFILE"
+    ],
+    "scanners": [
+     "source",
+     "container"
+    ],
+    "categories": [
+     "key"
+    ],
+    "usages": "any"
+   }
+  },
+  {
+   "id": "vault-dynamic",
+   "name": "Dynamic secrets lifecycle (Vault)",
+   "domain": "devsecops",
+   "tier": 2,
+   "source_skill": "implementing-hashicorp-vault-dynamic-secrets",
+   "source": {
+    "repository": "mukul975/Anthropic-Cybersecurity-Skills",
+    "commit": "54a798831d2266a3ca61ce68a7acb80b81160d57",
+    "license": "Apache-2.0"
+   },
+   "imported_at": "2026-09-06",
+   "status": "integrated",
+   "relevance": "tier-2 adjacent context",
+   "ecdat_mapping": {
+    "algorithms": [
+     "ENV-SECRET",
+     "KEYFILE"
+    ],
+    "scanners": [
+     "source",
+     "container",
+     "cloud"
+    ],
+    "categories": [
+     "key"
+    ],
+    "usages": "any"
+   }
+  }
+ ]
+}

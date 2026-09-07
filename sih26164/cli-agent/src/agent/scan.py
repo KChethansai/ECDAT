@@ -33,16 +33,23 @@ def validate_target(raw_target: str) -> Path:
 
 
 def _run_pipeline(target: Path, data_years: float, migration_years: float,
-                  qrqc_years_left: float, context_provenance: dict | None = None,
-                  runtime: bool = False) -> dict:
+                   qrqc_years_left: float, context_provenance: dict | None = None,
+                   runtime: bool = False, validate: bool = False,
+                   validation_targets: object = None,
+                   validation_policy: object = None, code_analysis: bool = False,
+                   code_categories: list[str] | None = None) -> dict:
     backend = str(BACKEND_ROOT)
     if backend not in sys.path:
         sys.path.insert(0, backend)
     from app.pipeline import REAL_SCANNERS, run_scan
 
     return run_scan(target, list(REAL_SCANNERS),
-                    data_years, migration_years, qrqc_years_left, context_provenance,
-                    runtime=runtime)
+                     data_years, migration_years, qrqc_years_left, context_provenance,
+                     runtime=runtime, validate=validate,
+                     validation_targets=validation_targets,
+                     validation_policy=validation_policy,
+                     code_analysis=code_analysis,
+                     code_categories=code_categories)
 
 
 def _summary(target: Path, report: dict, context_notes: list[str],
@@ -76,14 +83,54 @@ def _summary(target: Path, report: dict, context_notes: list[str],
     ]) + "\n"
 
 
+def analyze_code(raw_target: str, categories: list[str] | None = None) -> dict:
+    """Deterministic static codebase analysis (no vault write, no AI, no execution)."""
+    backend = str(BACKEND_ROOT)
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from app.code_analysis import analyze
+
+    return analyze(validate_target(raw_target), categories)
+
+
+def plan_finding(analysis: dict, finding_id: str, option_id: str,
+                 constraints: list[str] | None = None) -> dict:
+    """Deterministic remediation plan for a user-selected finding + option."""
+    backend = str(BACKEND_ROOT)
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from app.code_analysis import build_plan, finding_from_dict, to_agent_prompt, to_markdown
+
+    raw = next((f for f in analysis.get("findings", []) if f.get("id") == finding_id), None)
+    if raw is None:
+        raise ValueError(f"unknown finding id: {finding_id}")
+    plan = build_plan(finding_from_dict(raw), option_id, constraints)
+    plan["markdown"] = to_markdown(plan)
+    plan["agent_prompt"] = to_agent_prompt(plan)
+    return plan
+
+
+def verify_findings(before: list[dict], after: list[dict],
+                    touched: list[str] | None = None) -> dict:
+    backend = str(BACKEND_ROOT)
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from app.code_analysis import verify
+
+    return verify(before, after, touched)
+
+
 def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
          migration_years: float = 3.0, qrqc_years_left: float = 10.0,
-         runtime: bool = False, persist: bool = True) -> dict:
+         runtime: bool = False, persist: bool = True, validate: bool = False,
+         validation_targets: object = None, validation_policy: object = None,
+         code_analysis: bool = False, code_categories: list[str] | None = None) -> dict:
     """Load bounded vault context, run the real pipeline, and persist durable knowledge.
 
     `runtime` is explicit opt-in: it executes ONLY the bundled first-party probe
     under timeout/isolation. Static scans never execute anything.
-    `persist=False` skips the vault write for read-only questions.
+    `validate` is explicit opt-in: bounded TLS/HTTP probes against explicit
+    targets (loopback by default). `persist=False` skips the vault write.
     """
     if any(not 0 <= value <= 100 for value in (data_years, migration_years, qrqc_years_left)):
         raise ValueError("risk horizons must be between 0 and 100")
@@ -95,7 +142,11 @@ def scan(mem: ObsidianVaultProvider, raw_target: str, data_years: float = 10.0,
     report = _run_pipeline(target, data_years, migration_years, qrqc_years_left,
                            {"available": True, "notes": len(context_notes),
                             "chars": len(analysis_context), "maxChars": 4000},
-                           runtime=runtime)
+                           runtime=runtime, validate=validate,
+                           validation_targets=validation_targets,
+                           validation_policy=validation_policy,
+                           code_analysis=code_analysis,
+                           code_categories=code_categories)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S%fZ")
     note = ""
     if persist:

@@ -86,6 +86,34 @@ export function analystLine(f) {
 
 export const FALLBACK_SCANNERS = ["source", "binary", "container", "dependency", "hsm", "cloud"];
 
+/* ---- security knowledge layer (advisory; deterministic engine authoritative) ---- */
+
+export function knowledgeBase(report) {
+  return arr(report?.knowledgeBase);
+}
+
+export function skillById(report, id) {
+  return knowledgeBase(report).find((s) => s.id === id) || null;
+}
+
+/** Deterministic matches attached to a finding by the backend (may be absent on old reports). */
+export function matchesFor(finding) {
+  return arr(obj(finding).knowledge);
+}
+
+export function recContextFor(report, direction) {
+  return arr(report?.recommendationContext).find((e) => e.direction === direction) || null;
+}
+
+/** How many components reference a skill (for the explorer). */
+export function skillMatchCount(components, skillId) {
+  return arr(components).filter((f) => matchesFor(f).some((m) => m.skill === skillId)).length;
+}
+
+export function knowledgeSource(report) {
+  return obj(report?.knowledgeContext?.source);
+}
+
 /** Evidence-strength distribution over finding components (real data only). */
 export function strengthCounts(components) {
   const out = { HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0 };

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 
 from . import __version__, adapters, analyst, context, orchestration, registry, scan
 from .config import CLI_ROOT, resolve_vault_path
@@ -107,7 +106,11 @@ def cmd_verify(args) -> int:
 def cmd_scan(args) -> int:
     try:
         result = scan.scan(_mem(args), args.target, args.data_years, args.migration_years,
-                           args.qrqc_years_left, runtime=args.runtime)
+                           args.qrqc_years_left, runtime=args.runtime,
+                           validate=args.validate,
+                           validation_targets=args.validation_url or None,
+                           validation_policy=({"dry_run": True} if args.dry_run else None),
+                           code_analysis=args.code_analysis)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -135,11 +138,165 @@ def cmd_scan(args) -> int:
                       f"(controlled opt-in probe)")
             else:
                 print(f"  runtime: unavailable ({runtime_prov.get('reason', 'unknown')})")
+        if args.code_analysis and "codeAnalysis" in report:
+            health = report["codeAnalysis"].get("health", {})
+            print(f"  code: {health.get('total', 0)} finding(s) "
+                  f"({', '.join(f'{k}={v}' for k, v in sorted(health.get('byCategory', {}).items())) or 'none'})")
+        if args.validate and "validationSummary" in report:
+            vsum = report["validationSummary"]
+            print(f"  validation: {vsum.get('total', 0)} checks "
+                  f"({', '.join(f'{k}={v}' for k, v in sorted(vsum.get('byStatus', {}).items()))})"
+                  + (" [DRY RUN]" if vsum.get("dry_run") else ""))
+            if vsum.get("blocked_targets"):
+                print(f"  validation blocked: {len(vsum['blocked_targets'])} target(s)")
         print(f"  durable summary: {result['memoryNote']}")
         print("  CBOM-style report: stdout with default JSON output")
     else:
         print(json.dumps(result, indent=2, sort_keys=True))
     return 0
+
+
+def cmd_validate(args) -> int:
+    """Scan + validate, optionally emit SARIF and gate CI on a threshold."""
+    _backend = str(scan.BACKEND_ROOT)
+    if _backend not in sys.path:
+        sys.path.insert(0, _backend)
+    try:
+        result = scan.scan(_mem(args), args.target, runtime=args.runtime,
+                           validate=True, persist=False,
+                           validation_targets=args.validation_url or None,
+                           validation_policy=({"dry_run": True} if args.dry_run else None))
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    report = result["report"]
+    vsum = report.get("validationSummary", {})
+    print("ECDAT validation complete" + (" [DRY RUN]" if vsum.get("dry_run") else ""))
+    print(f"  checks: {vsum.get('total', 0)} "
+          f"({', '.join(f'{k}={v}' for k, v in sorted(vsum.get('byStatus', {}).items())) or 'none'})")
+    if vsum.get("blocked_targets"):
+        for blocked in vsum["blocked_targets"]:
+            print(f"  blocked: {blocked['url']} ({blocked['reason']})")
+    if args.sarif_out:
+        from app.validation.sarif import to_sarif
+
+        validations = report.get("validations", {}).get("results", [])
+        try:
+            with open(args.sarif_out, "w") as fh:
+                json.dump(to_sarif(report, validations), fh, indent=2, sort_keys=True)
+        except OSError as exc:
+            print(f"error: cannot write SARIF: {exc}", file=sys.stderr)
+            return 1
+        print(f"  SARIF: {args.sarif_out}")
+    if args.fail_on == "confirmed":
+        confirmed = sum(1 for c in report.get("components", [])
+                        if c.get("validationStatus") == "RUNTIME_CONFIRMED")
+        if confirmed:
+            print(f"  gate: {confirmed} confirmed finding(s) -> failing")
+            return 1
+    elif args.fail_on == "observed":
+        observed = sum(1 for c in report.get("components", [])
+                       if c.get("validationStatus") in ("RUNTIME_CONFIRMED", "RUNTIME_OBSERVED",
+                                                        "RUNTIME_CORRELATED"))
+        if observed:
+            print(f"  gate: {observed} observed finding(s) -> failing")
+            return 1
+    elif args.fail_on == "critical":
+        critical = sum(1 for c in report.get("components", [])
+                       if c.get("severity") == "critical")
+        if critical:
+            print(f"  gate: {critical} critical finding(s) -> failing")
+            return 1
+    return 0
+
+
+def cmd_analyze(args) -> int:
+    categories = [name for flag, name in (
+        (args.dead_code, "dead_code"), (args.efficiency, "efficiency"),
+        (args.duplicates, "duplication"), (args.complexity, "complexity"),
+        (args.dependencies, "dependencies"), (args.structure, "structure")) if flag]
+    try:
+        analysis = scan.analyze_code(args.target, categories or None)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if args.out:
+        try:
+            with open(args.out, "w") as fh:
+                json.dump(analysis, fh, indent=2, sort_keys=True)
+        except OSError as exc:
+            print(f"error: cannot write output: {exc}", file=sys.stderr)
+            return 1
+    if args.summary:
+        health = analysis.get("health", {})
+        print("ECDAT code analysis complete (deterministic, no AI)")
+        print(f"  findings: {health.get('total', 0)} "
+              f"({', '.join(f'{k}={v}' for k, v in sorted(health.get('byCategory', {}).items())) or 'none'})")
+        print(f"  priority: {', '.join(f'{k}={v}' for k, v in sorted(health.get('byPriority', {}).items())) or 'none'}")
+        print(f"  metrics: {analysis.get('metrics', {}).get('files', 0)} files, "
+              f"{analysis.get('metrics', {}).get('duration_s', 0)}s")
+        if args.out:
+            print(f"  analysis: {args.out}")
+    else:
+        print(json.dumps(analysis, indent=2, sort_keys=True))
+    return 0
+
+
+def _load_json_file(path: str) -> dict:
+    """Load a JSON object file; raises ValueError on shape/content problems."""
+    with open(path) as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        raise ValueError(f"expected a JSON object in {path}")
+    return data
+
+
+def cmd_plan_finding(args) -> int:
+    try:
+        analysis = _load_json_file(args.analysis)
+        plan = scan.plan_finding(analysis, args.finding, args.option, args.constraint or None)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if args.out:
+        try:
+            with open(args.out, "w") as fh:
+                json.dump(plan, fh, indent=2, sort_keys=True)
+        except OSError as exc:
+            print(f"error: cannot write output: {exc}", file=sys.stderr)
+            return 1
+        print(f"plan {plan['plan_id']} written to {args.out}")
+    if args.agent_prompt:
+        print(plan["agent_prompt"])
+    elif args.markdown:
+        print(plan["markdown"])
+    elif not args.out:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_verify_plan(args) -> int:
+    try:
+        before = _load_json_file(args.before).get("findings", [])
+        after = _load_json_file(args.after).get("findings", [])
+        result = scan.verify_findings(before, after, args.touched or None)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"verification: {result['status']} — {result['note']}")
+    return 0 if result["status"] in ("RESOLVED", "INCONCLUSIVE") else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -176,7 +333,54 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--runtime", action="store_true",
                     help="explicit opt-in: also run the controlled runtime probe "
                          "(bundled fixture only, bounded, isolated)")
+    sp.add_argument("--validate", action="store_true",
+                    help="explicit opt-in: run bounded active validation probes "
+                         "(loopback targets by default; see --validation-url)")
+    sp.add_argument("--validation-url", action="append", default=[],
+                    help="explicit probe URL (repeatable; loopback by default)")
+    sp.add_argument("--dry-run", action="store_true",
+                    help="with --validate: map strategies without sending requests")
+    sp.add_argument("--code-analysis", action="store_true",
+                    help="explicit opt-in: deterministic static codebase analysis "
+                         "(dead code, duplication, complexity, efficiency, deps, structure)")
     sp.set_defaults(fn=cmd_scan)
+    ap2 = sub.add_parser("analyze", help="deterministic codebase analysis (no AI, no execution)")
+    ap2.add_argument("target")
+    ap2.add_argument("--dead-code", action="store_true")
+    ap2.add_argument("--efficiency", action="store_true")
+    ap2.add_argument("--duplicates", action="store_true")
+    ap2.add_argument("--complexity", action="store_true")
+    ap2.add_argument("--dependencies", action="store_true")
+    ap2.add_argument("--structure", action="store_true")
+    ap2.add_argument("--summary", action="store_true", help="print a concise completion summary")
+    ap2.add_argument("--out", default=None, help="write analysis JSON to FILE")
+    ap2.set_defaults(fn=cmd_analyze)
+    pp2 = sub.add_parser("remediate", help="deterministic remediation plan for a finding + option")
+    pp2.add_argument("--analysis", required=True, help="analysis JSON file from `analyze --out`")
+    pp2.add_argument("--finding", required=True, help="CodeFinding id")
+    pp2.add_argument("--option", required=True, help="user-selected remediation option id")
+    pp2.add_argument("--constraint", action="append", default=[], help="repeatable constraint")
+    pp2.add_argument("--out", default=None, help="write plan JSON to FILE")
+    pp2.add_argument("--markdown", action="store_true", help="print plan.md instead of JSON")
+    pp2.add_argument("--agent-prompt", action="store_true", help="print the AI agent prompt")
+    pp2.set_defaults(fn=cmd_plan_finding)
+    vx = sub.add_parser("verify-fix", help="verify remediation: diff before/after analyses")
+    vx.add_argument("--before", required=True, help="pre-change analysis JSON file")
+    vx.add_argument("--after", required=True, help="post-change analysis JSON file")
+    vx.add_argument("--touched", action="append", default=[], help="touched file (repeatable)")
+    vx.set_defaults(fn=cmd_verify_plan)
+    vp = sub.add_parser("validate", help="validate findings with bounded probes + SARIF (CI-ready)")
+    vp.add_argument("target")
+    vp.add_argument("--validation-url", action="append", default=[],
+                    help="explicit probe URL (repeatable; loopback by default)")
+    vp.add_argument("--dry-run", action="store_true", help="map strategies, send no requests")
+    vp.add_argument("--sarif-out", default=None, help="write SARIF 2.1.0 to FILE")
+    vp.add_argument("--fail-on", default=None,
+                    choices=["confirmed", "observed", "critical"],
+                    help="exit 1 when threshold met (CI gate)")
+    vp.add_argument("--runtime", action="store_true",
+                    help="also run the controlled runtime probe first")
+    vp.set_defaults(fn=cmd_validate)
     ep = sub.add_parser("explain", help="answer analyst questions from scan evidence "
                                         "(deterministic; optional provider Q&A)")
     ep.add_argument("target")

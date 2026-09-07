@@ -9,7 +9,6 @@ credential values are never retained.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 

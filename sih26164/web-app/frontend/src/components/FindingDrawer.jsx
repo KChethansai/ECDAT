@@ -1,7 +1,82 @@
 import React, { useEffect, useRef } from "react";
-import { analystLine, arr, lineLabel, obj, shortPath, str } from "../lib/report.js";
-import { PriorityBadge, RealBadge, RuntimeBadge, SeverityBadge, StatusBadge, StrengthBadge } from "./Badges.jsx";
-import { IconBox, IconCompass, IconEvidence, IconGauge, IconLink, IconLock, IconMigrate, IconX } from "./icons.jsx";
+import { analystLine, arr, lineLabel, matchesFor, obj, shortPath, skillById, str } from "../lib/report.js";
+import { Badge, PriorityBadge, RealBadge, RuntimeBadge, SeverityBadge, StatusBadge, StrengthBadge } from "./Badges.jsx";
+import { IconBox, IconCompass, IconDoc, IconEvidence, IconGauge, IconLink, IconLock, IconMigrate, IconX } from "./icons.jsx";
+
+function SecurityContext({ finding, report }) {
+  const matches = matchesFor(finding);
+  if (matches.length === 0) return null;
+  const source = (report?.knowledgeContext?.source) || {};
+  return (
+    <Sec icon={<IconDoc size={13} />} title={`SECURITY CONTEXT (${matches.length})`}>
+      <p>
+        Advisory knowledge matched deterministically to this finding's algorithm, scanner, and category. It explains
+        relevance — it never changes the evidence, severity, or priority above.
+      </p>
+      {matches.map((m) => {
+        const skill = skillById(report, m.skill);
+        if (!skill) return null;
+        return (
+          <div key={m.skill} style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--line)" }}>
+            <div className="badge-row">
+              <Badge tone={m.strength === "HIGH" ? "cyan" : "muted"} label={`${m.strength} MATCH`} title="Rule depth of the match, not a model score" />
+              <b style={{ fontSize: 12.5 }}>{skill.name}</b>
+            </div>
+            <p style={{ marginBottom: 2 }}>
+              <b>Why it applies:</b> {m.why}.
+            </p>
+            <ul style={{ marginTop: 4 }}>
+              {skill.guidance.slice(0, 3).map((g) => (
+                <li key={g}>{g}</li>
+              ))}
+            </ul>
+            {(skill.frameworks?.nist_csf?.length > 0 || skill.frameworks?.mitre_attack?.length > 0) && (
+              <p className="cell-sub">
+                Related: {[...(skill.frameworks?.nist_csf || []), ...(skill.frameworks?.mitre_attack || [])].join(" · ")} (knowledge mapping, not a compliance claim)
+              </p>
+            )}
+          </div>
+        );
+      })}
+      <p className="cell-sub" style={{ marginTop: 8 }}>
+        Source: {source.repository || "—"}@{String(source.commit || "").slice(0, 7)} · {source.license || ""} · Evidence confidence and knowledge match are separate; recommendation basis: deterministic + knowledge.
+      </p>
+    </Sec>
+  );
+}
+
+function ValidationSection({ finding, report }) {
+  const f = obj(finding);
+  const all = arr(report?.validations?.results);
+  const mine = all.filter((r) => r && r.finding_id === f.id);
+  const status = str(f.validationStatus, "STATIC_ONLY");
+  if (status === "STATIC_ONLY" && mine.length === 0) return null;
+  return (
+    <Sec icon={<IconGauge size={13} />} title="ACTIVE VALIDATION">
+      <p>
+        <b>Status:</b> <span className="mono">{status}</span>
+      </p>
+      {mine.length === 0 ? (
+        <p>No direct validation checks ran for this finding in this report. Family-level runtime observations, if any, are noted under RISK ASSESSMENT.</p>
+      ) : (
+        <ul>
+          {mine.map((r) => (
+            <li key={r.validation_id}>
+              <span className="mono">{str(r.validation_type, "?")}</span> → <b>{str(r.status, "?")}</b>
+              {str(r.observed_protocol) ? <> · protocol <span className="mono">{r.observed_protocol}</span></> : null}
+              {str(r.observed_cipher) ? <> · cipher <span className="mono">{r.observed_cipher}</span></> : null}
+              {r.observed_key_size ? <> · key <span className="mono">{r.observed_key_size}</span></> : null}
+              {str(r.endpoint) ? <> · <code className="evidence">{r.endpoint}</code></> : null}
+              {str(r.error) ? <> · <span>{r.error}</span></> : null}
+              {str(r.evidence?.match_note) ? <> · <span>{r.evidence.match_note}</span></> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p>Validation observes and correlates; it never changes the severity or priority above. Absence of confirmation is not proof of safety.</p>
+    </Sec>
+  );
+}
 
 function Sec({ icon, title, children }) {
   return (
@@ -15,7 +90,7 @@ function Sec({ icon, title, children }) {
   );
 }
 
-export default function FindingDrawer({ finding, byId, onClose }) {
+export default function FindingDrawer({ finding, byId, report, onClose }) {
   const closeRef = useRef(null);
   useEffect(() => {
     if (!finding) return undefined;
@@ -153,6 +228,10 @@ export default function FindingDrawer({ finding, byId, onClose }) {
             {str(obj(f.correlation).note) ? <p>{f.correlation.note}</p> : null}
             <p>{analystLine(f)}</p>
           </Sec>
+
+          <ValidationSection finding={finding} report={report} />
+
+          <SecurityContext finding={finding} report={report} />
 
           <Sec icon={<IconCompass size={13} />} title="RECOMMENDATION">
             <p>

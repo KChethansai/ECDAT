@@ -558,3 +558,8 @@ footer.foot { margin-top: var(--s6); padding-top: 16px; border-top: 1px solid va
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .dist-fill { transition: none; }
 }
+
+.finding-row { border: 1px solid var(--line); border-radius: var(--r-sm); margin-top: 8px; overflow: hidden; }
+.finding-head { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 12px; background: none; border: 0; cursor: pointer; text-align: left; color: var(--text); font-size: 13px; }
+.finding-meta { flex: none; color: var(--muted); font-size: 12px; }
+.finding-detail { padding: 0 12px 12px; font-size: 13px; line-height: 1.6; }
