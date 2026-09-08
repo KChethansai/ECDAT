@@ -422,6 +422,85 @@ def cmd_verify_plan(args) -> int:
     return 0 if result["status"] in ("RESOLVED", "INCONCLUSIVE") else 1
 
 
+def _codegraph():
+    from .config import BACKEND_ROOT
+
+    backend = str(BACKEND_ROOT)
+    if backend not in sys.path:
+        sys.path.insert(0, backend)
+    from app import codegraph
+
+    return codegraph
+
+
+def cmd_graph(args) -> int:
+    import time
+
+    from .config import resolve_vault_path
+
+    try:
+        cg = _codegraph()
+        if args.op == "diff":
+            before = _load_json_file(args.before)
+            after = _load_json_file(args.after)
+            print(json.dumps(cg.diff_graphs(before, after), indent=2, sort_keys=True))
+            return 0
+        root = args.target
+        scan_id = args.scan_id or f"cli-{time.strftime('%Y%m%dT%H%M%S')}"
+        ctx = cg.build_context(root, scan_id=scan_id)
+        if args.op == "finding":
+            if not args.finding:
+                print("finding op needs --finding ID", file=sys.stderr)
+                return 2
+            print(json.dumps(cg.blast_radius(ctx, args.finding), indent=2,
+                             sort_keys=True))
+            return 0
+        if args.op == "health":
+            result = cg.health(ctx)
+            print(f"graph health: {result['status']} "
+                  f"({result['counts']['nodes']} nodes, "
+                  f"{result['counts']['relationships']} rels)")
+            for issue in result["issues"]:
+                print(f"  - {issue}")
+            return 0 if result["status"] == "PASS" else 1
+        if args.op == "status":
+            comp = cg.component_graph(ctx)
+            print(f"graph: {comp['counts']['nodes']} nodes, "
+                  f"{comp['counts']['relationships']} rels, "
+                  f"truncation={comp['truncation']}")
+            return 0
+        # generate
+        comp = cg.component_graph(ctx)
+        if args.out:
+            try:
+                with open(args.out, "w") as fh:
+                    json.dump(comp, fh, indent=2, sort_keys=True)
+            except OSError as exc:
+                print(f"error: cannot write output: {exc}", file=sys.stderr)
+                return 1
+            print(f"graph written to {args.out}")
+        if not args.no_vault:
+            try:
+                vault = resolve_vault_path(args.vault)
+                manifest = cg.to_vault(ctx, vault)
+            except (ValueError, OSError) as exc:
+                print(f"vault write deferred: {exc}", file=sys.stderr)
+                return 1
+            print(f"vault: {manifest['scope']} "
+                  f"({len(manifest['notes'])} notes, "
+                  f"{len(manifest['canvases'])} canvases)")
+        else:
+            print(f"graph: {comp['counts']['nodes']} nodes, "
+                  f"{comp['counts']['relationships']} rels (vault skipped)")
+        return 0
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="agent", description="ECDAT provider-neutral dev CLI")
     p.add_argument("--vault", default=None, help="vault path (default: OBSIDIAN_VAULT_PATH or ~/Documents/Vaults/SIH)")
@@ -506,6 +585,16 @@ def build_parser() -> argparse.ArgumentParser:
     vx.add_argument("--after", required=True, help="post-change analysis JSON file")
     vx.add_argument("--touched", action="append", default=[], help="touched file (repeatable)")
     vx.set_defaults(fn=cmd_verify_plan)
+    gx = sub.add_parser("graph", help="deterministic codebase graph → vault (offline, no AI)")
+    gx.add_argument("op", choices=["generate", "status", "diff", "finding", "health"])
+    gx.add_argument("target", nargs="?", default=".")
+    gx.add_argument("--scan-id", default="")
+    gx.add_argument("--finding", default="", help="finding id (for op=finding)")
+    gx.add_argument("--before", default="", help="graph JSON file (for op=diff)")
+    gx.add_argument("--after", default="", help="graph JSON file (for op=diff)")
+    gx.add_argument("--out", default=None, help="write graph JSON to FILE")
+    gx.add_argument("--no-vault", action="store_true", help="skip vault write")
+    gx.set_defaults(fn=cmd_graph)
     vp = sub.add_parser("validate", help="validate findings with bounded probes + SARIF (CI-ready)")
     vp.add_argument("target")
     vp.add_argument("--validation-url", action="append", default=[],

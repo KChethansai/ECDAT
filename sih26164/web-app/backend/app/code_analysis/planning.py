@@ -27,8 +27,15 @@ CONSTRAINT_TASKS = {
 
 
 def build_plan(finding: CodeFinding, option_id: str,
-               constraints: list[str] | None = None) -> dict:
-    """Build an implementation plan. Raises ValueError on unknown option/constraint."""
+               constraints: list[str] | None = None,
+               context: dict | None = None) -> dict:
+    """Build an implementation plan. Raises ValueError on unknown option/constraint.
+
+    context (optional): affected-surface mapping from the current CodebaseContext
+    (see codegraph.blast_radius()["affected_surface"]). When supplied, plan files
+    derive from it and each entry carries graph traceability; otherwise the
+    option's static affected_files are used (legacy behavior, unchanged).
+    """
     if constraints is not None and not isinstance(constraints, list):
         raise ValueError("constraints must be a list")
     constraints = sorted(set(constraints or []))
@@ -40,6 +47,24 @@ def build_plan(finding: CodeFinding, option_id: str,
         valid = [o["option_id"] for o in finding.remediation_options]
         raise ValueError(f"unknown option '{option_id}' (valid: {valid})")
     files = list(option["affected_files"]) or [finding.file_path]
+    traceability: list[dict] = []
+    if context:
+        surface = context.get("affected_surface") or {}
+        ordered: list[dict] = []
+        for bucket in ("DIRECTLY_AFFECTED", "CONFIGURATION_AFFECTED",
+                       "TEST_AFFECTED", "INDIRECTLY_AFFECTED",
+                       "DEPENDENCY_AFFECTED", "API_AFFECTED", "OPTIONAL_REVIEW"):
+            ordered.extend(surface.get(bucket, []) or [])
+        seen: set[str] = set()
+        for entry in ordered:
+            path = str(entry.get("path", ""))
+            if path and path not in seen and not path.startswith(
+                    ("GET ", "POST ", "PUT ", "DELETE ", "PATCH ")):
+                seen.add(path)
+                traceability.append(entry)
+        if traceability:
+            files = [e["path"] for e in traceability
+                     if e["relationship"] != "BELONGS_TO"] or files
     tasks = [
         {"task_id": "T1", "title": "Confirm the finding",
          "what": f"Verify: {finding.verification}",
@@ -84,6 +109,8 @@ def build_plan(finding: CodeFinding, option_id: str,
                               f"Accepted trade-offs: {'; '.join(option['disadvantages'])}."),
         "constraints": constraints,
         "affected_files": files,
+        "traceability": traceability,
+        "context_validated": bool(context),
         "dependencies": {"requires": [], "blocks": [],
                          "notes": "Single-finding plan; cross-finding ordering is the caller's job."},
         "phases": [

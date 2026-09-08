@@ -82,16 +82,16 @@ def resolve_vault_path(explicit: str | None = None,
 
 # -- safe filesystem writes (vault jail, no symlinks out) -----------------------
 
-def safe_join(vault: Path, relpath: str) -> Path:
-    """Join + validate: relative .md path that resolves inside vault."""
+def safe_join(vault: Path, relpath: str, suffix: str = ".md") -> Path:
+    """Join + validate: relative path (default .md) resolving inside vault."""
     raw = (relpath or "").strip()
     if not raw or raw.startswith((".", "/")) or ".." in Path(raw).parts:
         raise ValueError(f"unsafe note path: {relpath!r}")
     raw = raw.strip("/")
     if not raw or ".." in Path(raw).parts:
         raise ValueError(f"unsafe note path: {relpath!r}")
-    if not raw.endswith(".md"):
-        raw += ".md"
+    if suffix and not raw.endswith(suffix):
+        raw += suffix
     root = vault.expanduser().resolve()
     target = (root / raw).resolve()
     if target != root and root not in target.parents:

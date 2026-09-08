@@ -267,3 +267,25 @@ def test_scan_github_url_ref_profile_and_failure(monkeypatch, tmp_path, capsys):
     assert _run(monkeypatch, tmp_path, "scan", "ignored", "--github", url,
                 "--profile", "nope") == 2
     assert "unknown profile" in capsys.readouterr().err
+
+
+def test_graph_commands_offline(monkeypatch, tmp_path, capsys):
+    target = tmp_path / "proj"
+    (target / "pkg").mkdir(parents=True)
+    (target / "pkg" / "a.py").write_text("from pkg.b import f\n\nprint(f())\n")
+    (target / "pkg" / "b.py").write_text("def f():\n    return 1\n")
+    assert _run(monkeypatch, tmp_path, "graph", "status", str(target)) == 0
+    assert "graph:" in capsys.readouterr().out
+    assert _run(monkeypatch, tmp_path, "graph", "health", str(target)) == 0
+    assert "PASS" in capsys.readouterr().out
+    out = tmp_path / "g.json"
+    assert _run(monkeypatch, tmp_path, "graph", "generate", str(target),
+                "--scan-id", "clitest", "--out", str(out), "--no-vault") == 0
+    assert out.is_file()
+    assert _run(monkeypatch, tmp_path, "graph", "generate", str(target),
+                "--scan-id", "clitest") == 0
+    assert (tmp_path / "v" / "Graphs" / "clitest" / "index.md").is_file()
+    assert "vault:" in capsys.readouterr().out
+    assert _run(monkeypatch, tmp_path, "graph", "finding", str(target),
+                "--finding", "nope") == 0
+    assert "UNKNOWN" in capsys.readouterr().out
