@@ -21,7 +21,6 @@ backend/
                           # identifiers only, credentials never retained (is_mock=False)
       runtime_scanner.py  # REAL controlled runtime probe: explicit opt-in only,
                           # bundled fixture, timeout+isolation, no arbitrary execution
-      mocks.py            # base for future placeholder scanners (is_mock=True)
     risk.py        # Mosca inequality + severity
     recommend.py   # PQC/hybrid table
     cbom.py        # standardized JSON report (mock findings badged)
