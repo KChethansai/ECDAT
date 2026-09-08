@@ -3,7 +3,12 @@
 Modular monolith: Vite React GUI → FastAPI → scanner pipeline → CBOM JSON. No database.
 
 ```text
-frontend/          # Vite + React (npm run dev, proxied /scans /reports /health)
+frontend/          # Vite + React workstation GUI (npm run dev, API paths proxied)
+                   # routes: #/dashboard #/scan #/findings (+/:id) #/inventory #/risk
+                   #   #/migration #/code #/validation #/history #/knowledge #/reports #/settings
+                   # src/store.jsx owns report/scan/health state; src/lib/api.js is the
+                   #   only fetch layer; src/lib/selectors.js derives the view model.
+                   # tests: npm test (node:test over pure lib modules, no DOM)
 backend/
   app/
     models.py      # CryptoFinding — the single normalized handoff

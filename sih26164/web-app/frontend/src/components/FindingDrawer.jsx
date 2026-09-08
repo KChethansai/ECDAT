@@ -92,7 +92,7 @@ function Sec({ icon, title, children }) {
   );
 }
 
-export default function FindingDrawer({ finding, byId, report, onClose }) {
+export default function FindingDrawer({ finding, byId, report, onClose, onTriageSaved }) {
   const closeRef = useRef(null);
   useEffect(() => {
     if (!finding) return undefined;
@@ -237,7 +237,7 @@ export default function FindingDrawer({ finding, byId, report, onClose }) {
                 <b>State:</b> {str(f.triage?.status)}{str(f.triage?.reason) ? ` (${str(f.triage?.reason)})` : ""}
               </p>
             ) : null}
-            <TriageControl scope={triageScopeFor(report)} fp={str(f.fp)} current={f.triage} />
+            <TriageControl scope={triageScopeFor(report)} fp={str(f.fp)} current={f.triage} onSaved={onTriageSaved} />
           </Sec>
 
           <SecurityContext finding={finding} report={report} />

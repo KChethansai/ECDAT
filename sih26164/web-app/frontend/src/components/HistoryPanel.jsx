@@ -9,7 +9,7 @@ function fmtTime(ts) {
   }
 }
 
-export default function HistoryPanel() {
+export default function HistoryPanel({ onOpen }) {
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState("");
@@ -77,6 +77,14 @@ export default function HistoryPanel() {
                   <input type="checkbox" checked={selected.includes(h.scan_id)} onChange={() => toggle(h.scan_id)} />
                   <span className="mono">{str(h.repo)}@{(str(h.sha) || "").slice(0, 12)}</span>
                   {" "}· {str(h.profile)} · {fmtTime(h.timestamp)} · crypto {num(h.counts?.crypto)} / code {num(h.counts?.code)}
+                  {onOpen ? (
+                    <>
+                      {" "}
+                      <button type="button" className="row-button" onClick={() => onOpen(h.scan_id)} title="Load this report as the current report">
+                        Open
+                      </button>
+                    </>
+                  ) : null}
                 </label>
               ))}
             </div>

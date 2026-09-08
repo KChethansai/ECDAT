@@ -53,7 +53,7 @@ function FindingRow({ finding, analysisId, report }) {
           {str(f.triage?.status, "open") !== "open" ? (
             <p><b>Triage:</b> {str(f.triage?.status)}{str(f.triage?.reason) ? ` (${str(f.triage?.reason)})` : ""}</p>
           ) : null}
-          <TriageControl scope={triageScopeFor(report)} fp={str(f.fp)} current={f.triage} />
+          <TriageControl scope={triageScopeFor(report)} fp={str(f.fp)} current={f.triage} onSaved={onChanged} />
           <div>
             <b>Remediation options (you choose):</b>
             {options.map((o) => (
@@ -88,7 +88,7 @@ function FindingRow({ finding, analysisId, report }) {
   );
 }
 
-export default function CodebaseHealth({ analysis, report }) {
+export default function CodebaseHealth({ analysis, report, onChanged }) {
   const a = obj(analysis);
   const findings = arr(a.findings);
   const health = obj(a.health);
@@ -113,7 +113,7 @@ export default function CodebaseHealth({ analysis, report }) {
       </div>
       <div>
         {visible.slice(0, 100).map((f) => (
-          <FindingRow key={f.id} finding={f} analysisId={str(a.analysis_id)} report={report} />
+          <FindingRow key={f.id} finding={f} analysisId={str(a.analysis_id)} report={report} onChanged={onChanged} />
         ))}
         {visible.length > 100 ? <p className="section-sub">Showing 100 of {visible.length} — refine the filter.</p> : null}
       </div>

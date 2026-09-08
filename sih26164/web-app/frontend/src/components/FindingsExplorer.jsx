@@ -12,6 +12,8 @@ export default function FindingsExplorer({
   total,
   filterPriority,
   onPriority,
+  filterSeverity,
+  onSeverity,
   filterScanner,
   onScanner,
   scannerSources,
@@ -41,6 +43,16 @@ export default function FindingsExplorer({
               <option value="P1">P1 — Near-term</option>
               <option value="P2">P2 — Planned</option>
               <option value="P3">P3 — Monitor</option>
+            </select>
+          </label>
+          <label className="field" htmlFor="f-severity">
+            Severity
+            <select id="f-severity" value={filterSeverity} onChange={(e) => onSeverity(e.target.value)} aria-label="Filter by severity">
+              <option value="all">All severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
             </select>
           </label>
           <label className="field" htmlFor="f-scanner">

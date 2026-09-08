@@ -131,3 +131,14 @@ export const IconLock = (p) => (
     <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
   </I>
 );
+export const IconMenu = (p) => (
+  <I {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </I>
+);
+export const IconGear = (p) => (
+  <I {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1" />
+  </I>
+);
