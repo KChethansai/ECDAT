@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { href } from "../lib/router.js";
+import { immediateCount, migration } from "../lib/selectors.js";
 import { useStore } from "../store.jsx";
 import { IconBox, IconClock, IconCompass, IconDoc, IconDownload, IconEvidence, IconGauge, IconGear, IconMenu, IconMigrate, IconPulse, IconScan, IconShield, IconX } from "./icons.jsx";
 
 const NAV = [
   { name: "dashboard", label: "Dashboard", icon: IconGauge },
   { name: "scan", label: "Scan", icon: IconScan },
-  { name: "findings", label: "Findings", icon: IconEvidence, badge: (s) => (s.report ? String(s.report.summary?.total ?? s.report.components?.length ?? "") : "") },
-  { name: "inventory", label: "Inventory", icon: IconBox },
-  { name: "risk", label: "Risk & Exposure", icon: IconPulse },
-  { name: "migration", label: "Migration", icon: IconMigrate },
-  { name: "code", label: "Code Intel", icon: IconCompass },
-  { name: "validation", label: "Validation", icon: IconShield },
+  { name: "findings", label: "Findings", icon: IconEvidence, needsReport: true, badge: (s) => (s.report ? String(s.report.summary?.total ?? s.report.components?.length ?? "") : "") },
+  { name: "inventory", label: "Inventory", icon: IconBox, needsReport: true },
+  { name: "risk", label: "Risk & Exposure", icon: IconPulse, needsReport: true },
+  { name: "migration", label: "Migration", icon: IconMigrate, needsReport: true, badge: (s) => { const n = s.report ? immediateCount(migration(s.report)) : 0; return n > 0 ? String(n) : ""; } },
+  { name: "code", label: "Code Intel", icon: IconCompass, needsReport: true },
+  { name: "validation", label: "Validation", icon: IconShield, needsReport: true },
   { name: "history", label: "History", icon: IconClock, badge: (s) => (s.sessionScans.length > 0 ? String(s.sessionScans.length) : "") },
-  { name: "knowledge", label: "Knowledge", icon: IconDoc },
+  { name: "knowledge", label: "Knowledge", icon: IconDoc, needsReport: true },
   { name: "reports", label: "Reports", icon: IconDownload, badge: (s) => (s.scanId ? "●" : "") },
   { name: "settings", label: "Settings", icon: IconGear },
 ];
@@ -75,13 +76,16 @@ export default function Shell({ route, error, onExport, canExport, children }) {
                 const Icon = item.icon;
                 const active = route.name === item.name;
                 const badge = item.badge ? item.badge(store) : "";
+                // Dimmed, never disabled: the link still works and lands on a
+                // "run a scan first" prompt instead of a blank page.
+                const awaitingReport = Boolean(item.needsReport) && !store.hasReport;
                 return (
                   <li key={item.name}>
                     <a
                       href={href(item.name)}
-                      className={`nav-item${active ? " active" : ""}`}
+                      className={`nav-item${active ? " active" : ""}${awaitingReport ? " needs-report" : ""}`}
                       aria-current={active ? "page" : undefined}
-                      title={collapsed ? item.label : undefined}
+                      title={awaitingReport ? `${item.label} — run a scan first` : collapsed ? item.label : undefined}
                     >
                       <span className="nav-icon" aria-hidden="true">
                         <Icon size={16} />

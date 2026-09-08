@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ApiError, api } from "../lib/api.js";
 import { obj, str } from "../lib/report.js";
 
 const REASONS = ["false-positive", "intentional-architecture", "accepted-risk", "not-applicable", "duplicate", "deferred", "other"];
@@ -14,16 +15,11 @@ export default function TriageControl({ scope, fp, current, onSaved }) {
     setError("");
     setSaved(false);
     try {
-      const res = await fetch("/triage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope, fingerprint: fp, status, reason }),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await api.saveTriage(scope, fp, status, reason);
       setSaved(true);
       if (onSaved) onSaved({ status, reason });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof ApiError || err instanceof Error ? err.message : String(err));
     }
   }
 

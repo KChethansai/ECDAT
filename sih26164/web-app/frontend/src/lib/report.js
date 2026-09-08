@@ -16,6 +16,21 @@ export function lineLabel(line) {
   return typeof line === "number" && line > 0 ? String(line) : "—";
 }
 
+/** True when a 404 means the URL itself is unknown (wiring mismatch), not a
+ *  missing resource. FastAPI answers unknown paths with exactly
+ *  {"detail":"Not Found"}; every known ECDAT route returns a specific detail
+ *  ("unknown report …", "target not found: …", …). Pure and tested. */
+export function isBackendRouteMiss(status, bodyText) {
+  if (status !== 404) return false;
+  try {
+    const parsed = JSON.parse(bodyText);
+    const d = parsed && parsed.detail !== undefined ? parsed.detail : parsed;
+    return d === "Not Found";
+  } catch {
+    return false;
+  }
+}
+
 /** Human-readable API error without leaking stack traces. Handles
  *  string bodies, {detail: string}, and FastAPI 422 {detail: [{loc,msg}]}. */
 export function formatScanError(status, bodyText) {

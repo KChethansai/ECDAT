@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { ApiError, api } from "../lib/api.js";
 import { arr, num, obj, str } from "../lib/report.js";
 
 function fmtTime(ts) {
@@ -19,13 +20,11 @@ export default function HistoryPanel({ onOpen }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const res = await fetch("/scan-history");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = await res.json();
+      const body = await api.scanHistory();
       setHistory(arr(body.history));
       setOpen(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof ApiError || err instanceof Error ? err.message : String(err));
     }
   }, []);
 
@@ -38,15 +37,9 @@ export default function HistoryPanel({ onOpen }) {
     setError("");
     setDelta(null);
     try {
-      const res = await fetch("/scan-delta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ before: selected[0], after: selected[1] }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setDelta(await res.json());
+      setDelta(await api.scanDelta(selected[0], selected[1]));
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof ApiError || err instanceof Error ? err.message : String(err));
     }
   }
 

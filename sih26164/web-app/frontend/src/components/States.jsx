@@ -63,3 +63,17 @@ export function EmptyState({ title, body, hint }) {
 export function SectionEmpty({ children }) {
   return <p style={{ color: "var(--muted)", fontSize: 13, margin: "8px 0 0", lineHeight: 1.6 }}>{children}</p>;
 }
+
+/** Route-change placeholder: keeps the shell chrome stable behind a shimmer
+ *  while a lazy section chunk loads (first visit only — cached chunks render
+ *  synchronously and never flash this). */
+export function RouteSkeleton() {
+  return (
+    <div role="status" aria-live="polite" aria-label="Loading section" className="route-skeleton">
+      <div className="sk sk-title" />
+      <div className="sk sk-sub" />
+      <div className="sk sk-card" />
+      <div className="sk sk-card short" />
+    </div>
+  );
+}

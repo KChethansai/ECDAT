@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import { ApiError, api } from "../lib/api.js";
 import { arr, num, obj, str } from "../lib/report.js";
 import { triageScopeFor } from "./RepoPanel.jsx";
 import TriageControl from "./TriageControl.jsx";
 
 const CONSTRAINTS = ["preserve-public-apis", "minimize-files", "preserve-tests", "require-tests", "no-new-dependencies", "minimize-behavior-change"];
 
-function FindingRow({ finding, analysisId, report }) {
+function FindingRow({ finding, analysisId, report, onChanged }) {
   const [open, setOpen] = useState(false);
   const [option, setOption] = useState("");
   const [constraints, setConstraints] = useState([]);
@@ -18,16 +19,10 @@ function FindingRow({ finding, analysisId, report }) {
     if (!option) return;
     setError("");
     try {
-      const res = await fetch("/plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ analysis_id: analysisId, finding_id: f.id, option_id: option, constraints }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const body = await res.json();
+      const body = await api.createPlan({ analysis_id: analysisId, finding_id: f.id, option_id: option, constraints });
       setPlan(body.plan || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof ApiError || err instanceof Error ? err.message : String(err));
     }
   }
 
