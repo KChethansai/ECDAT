@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { href } from "../lib/router.js";
 import { exportFacts } from "../lib/report.js";
 import { scanTargetLabel } from "../lib/selectors.js";
 import { useStore } from "../store.jsx";
@@ -35,7 +36,7 @@ export default function Reports() {
       {!report ? (
         <div className="card">
           <SectionEmpty>
-            No current report. Run a scan, or open a known in-memory report by ID below.
+            No current report. <a href={href("scan")}>Run a scan</a>, or open a known in-memory report by ID below.
           </SectionEmpty>
         </div>
       ) : (
