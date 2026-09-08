@@ -29,7 +29,14 @@ backend/
     risk.py        # Mosca inequality + severity
     recommend.py   # PQC/hybrid table
     cbom.py        # standardized JSON report (mock findings badged)
-    main.py        # GET /health, POST /scans, GET /reports/{id}
+    main.py        # API routes (keep this list in sync with main.py +
+                     # frontend/src/lib/api.js + frontend/vite.config.js proxy):
+                     # GET /health, POST /scans, GET /reports/{rid},
+                     # GET /reports/{rid}/sarif, GET /scan-history,
+                     # POST /scan-delta, GET+POST /triage,
+                     # POST /validations, GET /validations/{vid},
+                     # POST /code-analysis, GET /code-analysis/{aid},
+                     # POST /plans, GET /plans/{pid}, POST /plans/verify
   samples/vuln_sample/    # intentionally vulnerable fixture
   tests/                  # pytest pipeline + API tests
 docs/              # product notes
