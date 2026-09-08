@@ -62,13 +62,19 @@ export const api = {
     apiFetch("/scan-delta", { method: "POST", body: { before, after }, signal }),
   saveTriage: (scope, fingerprint, status, reason, signal) =>
     apiFetch("/triage", { method: "POST", body: { scope, fingerprint, status, reason }, signal }),
+  /* Intentionally unwired (no UI caller yet): for a future cross-scope triage
+     audit view. Per-finding triage already arrives embedded in the report. */
   listTriage: (scope, signal) =>
     apiFetch(scope ? `/triage?scope=${encodeURIComponent(scope)}` : "/triage", { signal }),
   createValidation: (payload, signal) => apiFetch("/validations", { method: "POST", body: payload, signal }),
   getValidation: (vid, signal) => apiFetch(`/validations/${encodeURIComponent(vid)}`, { signal }),
   createCodeAnalysis: (payload, signal) => apiFetch("/code-analysis", { method: "POST", body: payload, signal }),
+  /* Intentionally unwired (no UI caller yet): for a future open-analysis-by-id
+     flow mirroring Reports' open-by-report-id. Analysis arrives embedded today. */
   getCodeAnalysis: (aid, signal) => apiFetch(`/code-analysis/${encodeURIComponent(aid)}`, { signal }),
   createPlan: (payload, signal) => apiFetch("/plans", { method: "POST", body: payload, signal }),
+  /* Intentionally unwired (no UI caller yet): for reopening a persisted plan by
+     id once plan_id is surfaced/stored. Generated plans display inline today. */
   getPlan: (pid, signal) => apiFetch(`/plans/${encodeURIComponent(pid)}`, { signal }),
   verifyPlan: (payload, signal) => apiFetch("/plans/verify", { method: "POST", body: payload, signal }),
 };
