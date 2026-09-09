@@ -74,7 +74,7 @@ function FindingRow({ finding, analysisId, report, onChanged }) {
             <div>
               <p><b>Plan {str(plan.plan_id)} — {str(plan.selected_option?.title)}</b></p>
               <pre className="evidence" style={{ whiteSpace: "pre-wrap" }}>{str(plan.markdown)}</pre>
-              <button type="button" className="btn" onClick={() => navigator.clipboard?.writeText(str(plan.agent_prompt))}>Copy AI agent prompt (optional)</button>
+              <button type="button" className="btn btn-secondary" onClick={() => navigator.clipboard?.writeText(str(plan.agent_prompt))}>Copy AI agent prompt (optional)</button>
             </div>
           ) : null}
         </div>

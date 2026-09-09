@@ -16,7 +16,7 @@ export function RelationshipsSection({ inventory, byId }) {
       </div>
       <div className="card">
         {rows.length === 0 ? (
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
             No multi-finding families in this scan — every family stands alone. Absence of links is not proof of isolation.
           </p>
         ) : (
@@ -25,7 +25,7 @@ export function RelationshipsSection({ inventory, byId }) {
               <b className="mono" style={{ fontSize: 12.5 }}>
                 {str(row.family)}
               </b>
-              <ul style={{ margin: "4px 0", paddingLeft: 20, color: "var(--muted)", fontSize: 12.5, lineHeight: 1.7 }}>
+              <ul style={{ margin: "4px 0", paddingLeft: 20, color: "var(--text-muted)", fontSize: 12.5, lineHeight: 1.7 }}>
                 {arr(row.findingIds).map((id) => (
                   <li key={id}>
                     {byId[id] ? `${byId[id].scanner}: ${(byId[id].file_path || "").split("/").slice(-2).join("/")} — ${byId[id].usage}` : id}
@@ -46,7 +46,7 @@ export function AnalystSummary({ report, familyCount, runtimeCount, immediateCou
     <section className="section" aria-label="Analyst summary">
       <div className="card">
         <p className="eyebrow">ANALYST SUMMARY (DETERMINISTIC)</p>
-        <p className="section-sub" style={{ fontSize: 13.5, color: "var(--text2)" }}>
+        <p className="section-sub" style={{ fontSize: 13.5, color: "var(--text-muted)" }}>
           {total} finding(s) across {familyCount} familie(s)
           {immediateCount > 0 ? `; start with the ${immediateCount} Immediate migration item(s)` : "; no immediate migration items"}
           {runtimeCount > 0
@@ -118,7 +118,7 @@ export function RecommendationsList({ components, report }) {
           </div>
         </div>
         <div className="card">
-          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>No recommendations in this report.</p>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0 }}>No recommendations in this report.</p>
         </div>
       </section>
     );

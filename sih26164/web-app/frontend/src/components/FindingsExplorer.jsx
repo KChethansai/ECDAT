@@ -69,7 +69,7 @@ export default function FindingsExplorer({
           <label className="field search" htmlFor="f-search">
             Search
             <span style={{ position: "relative", display: "block" }}>
-              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--faint)", display: "inline-flex" }}>
+              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", display: "inline-flex" }}>
                 <IconSearch size={14} />
               </span>
               <input
@@ -155,18 +155,18 @@ export default function FindingsExplorer({
                       <code className="evidence">{str(f.evidence, "metadata only")}</code>
                     </td>
                     <td>
-                      <div className="cell-sub" style={{ color: "var(--text2)" }}>
+                      <div className="cell-sub" style={{ color: "var(--text-muted)" }}>
                         {str(f.rationale, "—")}
                       </div>
                       {arr(f.correlation?.supports).length > 0 ? (
                         <div className="cell-sub">↔ supported by {f.correlation.supports.length} static finding(s)</div>
                       ) : null}
-                      <div className="cell-sub" style={{ color: "var(--cyan)" }}>
+                      <div className="cell-sub" style={{ color: "var(--accent)" }}>
                         {analystLine(f)}
                       </div>
                     </td>
                     <td>
-                      <div className="cell-sub" style={{ color: "var(--text2)" }}>
+                      <div className="cell-sub" style={{ color: "var(--text-muted)" }}>
                         {str(f.recommendation?.recommend, "Review manually")}
                       </div>
                     </td>

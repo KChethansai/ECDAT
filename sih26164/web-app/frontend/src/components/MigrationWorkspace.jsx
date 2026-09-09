@@ -57,7 +57,7 @@ export default function MigrationWorkspace({ migration }) {
                             <StatusBadge value={item.status} />
                           </div>
                           <p>
-                            <strong className="mono">{str(item.family, "?")}</strong> <span style={{ color: "var(--faint)" }}>· {str(item.title, "")}</span>
+                            <strong className="mono">{str(item.family, "?")}</strong> <span style={{ color: "var(--text-muted)" }}>· {str(item.title, "")}</span>
                           </p>
                           <p>{str(item.reason, "—")}</p>
                           <p>

@@ -17,38 +17,38 @@ export function ExecutiveMetrics({ report, criticallyHigh, runtimeCount, immedia
   return (
     <section aria-label="Executive metrics">
       <div className="grid metrics-primary">
-        <Metric label="Total findings" value={num(summary.total)} meaning="Normalized static + runtime evidence" tone="var(--cyan)" glow="rgba(45,212,191,.12)" />
+        <Metric label="Total findings" value={num(summary.total)} meaning="Normalized static + runtime evidence" tone="var(--accent)" glow="rgba(57,255,136,.12)" />
         <Metric
           label="Critical / high"
           value={criticallyHigh}
           meaning="Needs attention first"
-          tone={criticallyHigh > 0 ? "var(--red)" : "var(--green)"}
-          glow={criticallyHigh > 0 ? "rgba(255,180,171,.12)" : "rgba(61,213,152,.12)"}
+          tone={criticallyHigh > 0 ? "var(--danger)" : "var(--accent)"}
+          glow={criticallyHigh > 0 ? "rgba(255,77,77,.12)" : "rgba(57,255,136,.12)"}
         />
         <Metric
           label="Immediate migration"
           value={immediateCount}
           meaning="P0 / critical work items"
-          tone={immediateCount > 0 ? "var(--amber)" : "var(--green)"}
-          glow="rgba(240,166,43,.12)"
+          tone={immediateCount > 0 ? "var(--warning)" : "var(--accent)"}
+          glow="rgba(255,176,32,.12)"
         />
       </div>
       <div className="grid metrics-secondary">
-        <Metric small label="Algorithm families" value={familyCount} meaning="Canonical inventory groups" tone="var(--indigo)" glow="rgba(190,194,255,.12)" />
-        <Metric small label="Migration candidates" value={candidateCount} meaning="Planned work items" tone="var(--indigo)" glow="rgba(190,194,255,.12)" />
-        <Metric small label="Open unknowns" value={unknownCount} meaning="Planner-recorded gaps" tone="var(--amber)" glow="rgba(240,166,43,.1)" />
-        <Metric small label="Runtime observations" value={runtimeCount} meaning="Controlled probe only" tone="var(--green)" glow="rgba(61,213,152,.1)" />
+        <Metric small label="Algorithm families" value={familyCount} meaning="Canonical inventory groups" tone="var(--text-muted)" glow="rgba(154,154,154,.12)" />
+        <Metric small label="Migration candidates" value={candidateCount} meaning="Planned work items" tone="var(--text-muted)" glow="rgba(154,154,154,.12)" />
+        <Metric small label="Open unknowns" value={unknownCount} meaning="Planner-recorded gaps" tone="var(--warning)" glow="rgba(255,176,32,.1)" />
+        <Metric small label="Runtime observations" value={runtimeCount} meaning="Controlled probe only" tone="var(--accent)" glow="rgba(57,255,136,.1)" />
       </div>
     </section>
   );
 }
 
 const SEV_ORDER = ["critical", "high", "medium", "low"];
-const SEV_BAR = { critical: "var(--red)", high: "var(--orange)", medium: "var(--indigo)", low: "var(--muted)" };
+const SEV_BAR = { critical: "var(--danger)", high: "var(--warning)", medium: "var(--text-muted)", low: "var(--text-muted)" };
 const PRI_ORDER = ["P0", "P1", "P2", "P3"];
-const PRI_BAR = { P0: "var(--red)", P1: "var(--orange)", P2: "var(--amber)", P3: "var(--cyan)" };
+const PRI_BAR = { P0: "var(--danger)", P1: "var(--warning)", P2: "var(--warning)", P3: "var(--accent)" };
 const STR_ORDER = ["HIGH", "MEDIUM", "LOW"];
-const STR_BAR = { HIGH: "var(--cyan)", MEDIUM: "var(--amber)", LOW: "var(--faint)" };
+const STR_BAR = { HIGH: "var(--accent)", MEDIUM: "var(--warning)", LOW: "var(--text-muted)" };
 
 function Dist({ title, sub, rows, max }) {
   return (
@@ -64,7 +64,7 @@ function Dist({ title, sub, rows, max }) {
           <div className="dist-row" key={k}>
             <span className="k">{k}</span>
             <span className="dist-track" role="img" aria-label={`${k}: ${v} of ${max}`}>
-              <span className="dist-fill" style={{ width: max > 0 ? `${Math.round((v / max) * 100)}%` : "0%", background: rows.color?.[k] || "var(--cyan)" }} />
+              <span className="dist-fill" style={{ width: max > 0 ? `${Math.round((v / max) * 100)}%` : "0%", background: rows.color?.[k] || "var(--accent)" }} />
             </span>
             <span className="v">{v}</span>
           </div>
@@ -126,12 +126,12 @@ export function FixFirstCard({ finding, runtimeAvailable }) {
           : "Static evidence only (runtime probe not run).";
   return (
     <div className="card fixfirst" aria-label="Fix first recommendation">
-      <p className="eyebrow" style={{ color: "var(--red)" }}>
+      <p className="eyebrow" style={{ color: "var(--danger)" }}>
         FIX FIRST — HIGHEST PRIORITY
       </p>
       <h3>
         <span className="algo">{str(finding.algorithm, "?")}</span>{" "}
-        <span style={{ color: "var(--muted)", fontSize: 14, fontWeight: 600 }}>· top of deterministic order</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 14, fontWeight: 600 }}>· top of deterministic order</span>
       </h3>
       <div className="badge-row">
         <PriorityBadge value={finding.priority} />

@@ -61,9 +61,9 @@ export default function InventoryTable({ inventory }) {
                         <SeverityBadge value={row.severity} />
                       </div>
                     </td>
-                    <td>{row.runtimeObserved ? <RuntimeBadge observed /> : <span style={{ color: "var(--faint)" }}>—</span>}</td>
+                    <td>{row.runtimeObserved ? <RuntimeBadge observed /> : <span style={{ color: "var(--text-muted)" }}>—</span>}</td>
                     <td>
-                      <div className="cell-sub" style={{ color: "var(--text2)" }}>
+                      <div className="cell-sub" style={{ color: "var(--text-muted)" }}>
                         {str(row.recommendation, "Review manually")}
                       </div>
                     </td>

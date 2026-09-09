@@ -61,7 +61,7 @@ export function EmptyState({ title, body, hint }) {
 }
 
 export function SectionEmpty({ children }) {
-  return <p style={{ color: "var(--muted)", fontSize: 13, margin: "8px 0 0", lineHeight: 1.6 }}>{children}</p>;
+  return <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "8px 0 0", lineHeight: 1.6 }}>{children}</p>;
 }
 
 /** Route-change placeholder: keeps the shell chrome stable behind a shimmer
