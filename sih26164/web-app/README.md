@@ -13,7 +13,8 @@ backend/
   app/
     models.py      # CryptoFinding — the single normalized handoff
     scanner/
-      source_scanner.py   # REAL source/config discovery (is_mock=False)
+      source_scanner.py   # REAL source/config discovery, incl. Python ssl-API
+                          # version constants (is_mock=False)
       binary_scanner.py   # REAL static binary indicators: ELF/PE/Mach-O strings,
                           # library/symbol refs, embedded cert metadata (is_mock=False)
       container_scanner.py# REAL static container inspection: image archives, OCI
@@ -38,7 +39,8 @@ backend/
                      # POST /code-analysis, GET /code-analysis/{aid},
                      # POST /plans, GET /plans/{pid}, POST /plans/verify
   samples/vuln_sample/    # intentionally vulnerable fixture
-  tests/                  # pytest pipeline + API tests
+  tests/                  # pytest pipeline + API tests (incl. route-drift
+                          # guard and TLS-detection regression)
 docs/              # product notes
 ```
 
