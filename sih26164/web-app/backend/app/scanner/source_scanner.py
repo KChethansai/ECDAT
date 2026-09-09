@@ -50,6 +50,19 @@ RULES: list[tuple[str, str, str, float, str]] = [
     (r"\bTLSv?1\.1\b", "TLS1.1", "protocol", 0.9, "proto"),
     (r"\bTLSv?1\.2\b", "TLS1.2", "protocol", 0.85, "proto"),
     (r"\bTLSv?1\.3\b", "TLS1.3", "protocol", 0.85, "proto"),
+    # Real Python ssl-module API constants (no dots: ssl.PROTOCOL_TLSv1, not
+    # "TLSv1.0"). Specific _1/_2 forms precede the bare forms; the trailing
+    # \b already excludes _1/_2 suffixes ("1" followed by "_" has no boundary).
+    (r"\bssl\.PROTOCOL_SSLv2\b", "SSLv2", "protocol", 0.95, "proto"),
+    (r"\bssl\.PROTOCOL_SSLv3\b", "SSLv3", "protocol", 0.95, "proto"),
+    (r"\bssl\.PROTOCOL_TLSv1_2\b", "TLS1.2", "protocol", 0.85, "proto"),
+    (r"\bssl\.PROTOCOL_TLSv1_1\b", "TLS1.1", "protocol", 0.9, "proto"),
+    (r"\bssl\.PROTOCOL_TLSv1\b", "TLS1.0", "protocol", 0.9, "proto"),
+    (r"\bssl\.PROTOCOL_TLS_(?:CLIENT|SERVER)\b", "TLS1.3", "protocol", 0.85, "proto"),
+    (r"\bssl\.TLSVersion\.TLSv1_3\b", "TLS1.3", "protocol", 0.85, "proto"),
+    (r"\bssl\.TLSVersion\.TLSv1_2\b", "TLS1.2", "protocol", 0.85, "proto"),
+    (r"\bssl\.TLSVersion\.TLSv1_1\b", "TLS1.1", "protocol", 0.9, "proto"),
+    (r"\bssl\.TLSVersion\.TLSv1\b", "TLS1.0", "protocol", 0.9, "proto"),
     (r"-----BEGIN (RSA PRIVATE KEY|PRIVATE KEY|OPENSSH PRIVATE KEY|CERTIFICATE)-----",
      "PEM", "certificate", 0.99, "pem"),
     (r"\.(pem|p12|pfx|jks|keystore)\b", "KEYFILE", "key", 0.6, ""),
