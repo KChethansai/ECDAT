@@ -4,10 +4,27 @@ import { arr, num, obj, str } from "../lib/report.js";
 
 function fmtTime(ts) {
   try {
-    return new Date(num(ts) * 1000).toLocaleString();
+    const d = new Date(num(ts) * 1000);
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
   } catch {
     return "—";
   }
+}
+
+function sourceLabel(h) {
+  const owner = str(h.owner);
+  const repo = str(h.repo);
+  const sha = str(h.sha).slice(0, 12);
+  if (str(h.source_type) === "github" && owner && repo) {
+    return `github:${owner}/${repo}${sha ? `@${sha}` : ""}`;
+  }
+  return `local:${str(h.target) || "—"}`;
+}
+
+function countsLabel(h) {
+  const c = obj(h.counts);
+  const total = c.total ?? c.crypto ?? 0;
+  return `${num(total)} findings · ${num(c.critical)} critical · ${num(c.high)} high`;
 }
 
 export default function HistoryPanel({ onOpen }) {
@@ -61,15 +78,15 @@ export default function HistoryPanel({ onOpen }) {
       {error ? <p className="alert">{error}</p> : null}
       {open ? (
         history.length === 0 ? (
-          <p className="section-sub">No repository scans recorded yet in this session.</p>
+          <p className="section-sub">No scans yet — run a scan and it will persist here across backend restarts.</p>
         ) : (
           <>
             <div>
               {history.map((h) => (
                 <label key={h.scan_id} className="check" style={{ display: "block" }}>
                   <input type="checkbox" checked={selected.includes(h.scan_id)} onChange={() => toggle(h.scan_id)} />
-                  <span className="mono">{str(h.repo)}@{(str(h.sha) || "").slice(0, 12)}</span>
-                  {" "}· {str(h.profile)} · {fmtTime(h.timestamp)} · crypto {num(h.counts?.crypto)} / code {num(h.counts?.code)}
+                  <span className="mono">{sourceLabel(h)}</span>
+                  {" "}· {str(h.profile) || "—"} · {str(h.status) || "complete"} · {fmtTime(h.timestamp)} · {countsLabel(h)}
                   {onOpen ? (
                     <>
                       {" "}

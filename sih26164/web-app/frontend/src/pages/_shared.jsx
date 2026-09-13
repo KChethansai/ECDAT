@@ -23,7 +23,7 @@ export function RequireReport({ report, loading, title, children }) {
           {loading ? "or wait for the running scan to finish" : "to populate it"}.
         </>
       }
-      hint="Reports live in backend memory; restarting the API clears them."
+      hint="Reports persist in backend scan history across restarts — reopen them from History."
     />
   );
 }

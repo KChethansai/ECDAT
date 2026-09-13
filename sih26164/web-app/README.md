@@ -54,5 +54,7 @@ curl -X POST localhost:8000/scans -H 'Content-Type: application/json' \
   -d '{"target":"sample","scanners":["source"]}'
 ```
 
-Reports are in-memory (restart clears; re-POST). `mockWarning` + MOCK badges appear
+Reports are cached in memory (cap 50) and persisted to `backend/.data/`
+(newest 500 scans; restart-safe). Validations, code analyses, and plans
+remain in-memory-only. `mockWarning` + MOCK badges appear
 whenever mock scanners contribute. Never present MOCK rows as discovery.

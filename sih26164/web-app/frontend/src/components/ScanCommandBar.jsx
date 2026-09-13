@@ -2,9 +2,9 @@ import React from "react";
 import { IconLock, IconScan } from "./icons.jsx";
 
 const PROFILES = [
-  { id: "quick", desc: "Metadata & high-risk signals", eta: "~15s" },
-  { id: "crypto", desc: "Exhaustive CBOM, PQC risk, keys", eta: "~30s" },
-  { id: "codebase", desc: "Dead code, duplication, complexity", eta: "~20s" },
+  { id: "quick", desc: "3 crypto scanners + dead-code, dependency & structure checks. No validation unless opted in.", eta: "~15s" },
+  { id: "crypto", desc: "Exhaustive crypto/CBOM + PQC risk. No code findings unless code analysis is on.", eta: "~30s" },
+  { id: "codebase", desc: "Source-scanner crypto + full code analysis (dead code, duplication, complexity).", eta: "~20s" },
   { id: "full", desc: "Comprehensive crypto + codebase", eta: "~45s", tag: "RECOMMENDED" },
   { id: "full-validation", desc: "Full pipeline + live probes", eta: "~90s" },
 ];
@@ -133,7 +133,7 @@ export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, l
         <div className="cmdbar-body" style={{ paddingTop: 0 }}>
           <label className="field grow" htmlFor="validation-urls">
             Validation endpoints (one per line, explicit only)
-            <input
+            <textarea
               id="validation-urls"
               value={validationUrls}
               onChange={(e) => onValidationUrls(e.target.value)}
@@ -142,6 +142,7 @@ export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, l
               autoComplete="off"
               spellCheck="false"
               className="mono"
+              rows={3}
             />
           </label>
           <label className="check" htmlFor="allow-non-loopback" title="Acknowledges probing non-loopback hosts. Only enable for hosts you are authorized to test.">
@@ -149,6 +150,9 @@ export default function ScanCommandBar({ target, onTarget, runtime, onRuntime, l
             allow non-loopback
           </label>
         </div>
+      ) : null}
+      {!isGithub ? (
+        <p className="cell-sub">Local scans use the scanner toggles above; profiles are a GitHub-path convenience.</p>
       ) : null}
       <p className="cmdbar-note safe-strip">
         <IconLock size={13} />

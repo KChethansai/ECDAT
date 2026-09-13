@@ -77,7 +77,7 @@ export default function FindingsExplorer({
                 value={query}
                 onChange={(e) => onQuery(e.target.value)}
                 aria-label="Search findings"
-                placeholder="algorithm, path, evidence, library…"
+                placeholder="Search algorithms, files, libraries, evidence, scanners, IDs…"
                 autoComplete="off"
                 spellCheck="false"
                 style={{ paddingLeft: 32 }}

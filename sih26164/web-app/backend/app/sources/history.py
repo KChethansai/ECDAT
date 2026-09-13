@@ -8,7 +8,14 @@ from __future__ import annotations
 
 import time
 
-TRIAGE_STATES = ("open", "reviewed", "suppressed", "resolved")
+TRIAGE_STATES = ("open", "triaged", "planned", "in_progress", "fixed",
+                "verified", "suppressed")
+# Pre-extension values migrate deterministically; never lose stored state.
+LEGACY_TRIAGE = {"reviewed": "triaged", "resolved": "verified"}
+
+
+def migrate_status(status: str) -> str:
+    return LEGACY_TRIAGE.get(status, status)
 SUPPRESS_REASONS = ("false-positive", "intentional-architecture", "accepted-risk",
                     "not-applicable", "duplicate", "deferred", "other")
 # Severity rank for regression detection (higher = worse).
@@ -16,17 +23,30 @@ SEV_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
 def history_record(scan_id: str, source: dict, profile: str, report: dict,
-                   duration_s: float) -> dict:
+                   duration_s: float, target: str = "") -> dict:
     """Compact history entry (counts only, never full findings)."""
     components = report.get("components", []) if isinstance(report, dict) else []
     analysis = report.get("codeAnalysis") or {}
     code = analysis.get("findings", []) if isinstance(analysis, dict) else []
-    critical = sum(1 for c in components if isinstance(c, dict) and c.get("severity") == "critical")
-    return {"scan_id": scan_id, "source_type": source.get("type", "local"),
+    critical = high = 0
+    for c in components:
+        if not isinstance(c, dict):
+            continue
+        if c.get("severity") == "critical":
+            critical += 1
+        elif c.get("severity") == "high":
+            high += 1
+    if not target and isinstance(report, dict):
+        target = str((report.get("metadata") or {}).get("scanTarget", ""))
+    return {"scan_id": scan_id, "target": str(target or "")[:512],
+            "source_type": source.get("type", "local"),
             "repo": source.get("repo", ""), "owner": source.get("owner", ""),
             "sha": source.get("sha", ""), "ref_requested": source.get("ref_requested", ""),
             "profile": profile, "timestamp": time.time(), "duration_s": round(duration_s, 2),
-            "counts": {"crypto": len(components), "critical": critical, "code": len(code)}}
+            "status": "complete",
+            "counts": {"crypto": len(components), "critical": critical,
+                       "high": high, "code": len(code),
+                       "total": len(components) + len(code)}}
 
 
 def _index(rows: list) -> tuple[dict, dict]:
@@ -115,7 +135,9 @@ def _is_critical(report: dict, fid: str) -> bool:
 
 def set_triage(store: dict, scope: str, fingerprint: str, status: str,
                reason: str = "") -> dict:
-    """Record triage state. Suppression without a reason is rejected."""
+    """Record triage state. Suppression without a reason is rejected.
+    Legacy statuses (reviewed/resolved) are accepted and stored migrated."""
+    status = migrate_status(status)
     if status not in TRIAGE_STATES:
         raise ValueError(f"unknown triage status '{status}' (valid: {list(TRIAGE_STATES)})")
     if not fingerprint or len(fingerprint) > 64:
@@ -136,5 +158,7 @@ def apply_triage(rows: list, store: dict, scope: str) -> None:
         if not isinstance(row, dict):
             continue
         entry = store.get((scope, row.get("fp", "")))
-        row["triage"] = {"status": entry["status"], "reason": entry["reason"]} \
+        status = migrate_status(entry["status"]) if entry else "open"
+        row["triage"] = {"status": status,
+                         "reason": entry["reason"] if entry else ""} \
             if entry else {"status": "open", "reason": ""}

@@ -13,13 +13,13 @@ export default function History() {
     if (result.ok) {
       window.location.hash = "#/dashboard";
     } else {
-      setNotice("That report is no longer in backend memory (reports are in-memory: restart or eviction clears them). Re-run the scan to reproduce it deterministically.");
+      setNotice("That report is no longer available (it may have been evicted or deleted from scan history). Re-run the scan to reproduce it deterministically.");
     }
   }
 
   return (
     <>
-      <PageHead eyebrow="SCAN HISTORY" title="History" sub="Server history covers repository scans; this session lists every scan run from this browser." />
+      <PageHead eyebrow="SCAN HISTORY" title="History" sub="Durable scan history (local + repository scans) persisted across backend restarts; this session lists every scan run from this browser." />
       {notice ? <p role="alert" className="alert alert-error">{notice}</p> : null}
       <div className="card" aria-label="This session">
         <p className="eyebrow">THIS SESSION (THIS BROWSER)</p>
@@ -41,8 +41,8 @@ export default function History() {
       </div>
       <HistoryPanel onOpen={open} />
       <p className="section-sub">
-        History entries are compact counts held in backend memory (newest {100} kept; restart clears them).
-        Deltas compare two in-memory reports by stable finding identity — never by array position.
+        History entries are compact counts persisted in backend/.data (newest {500} kept; one corrupt record can never destroy the rest).
+        Deltas compare two persisted reports by stable finding identity — never by array position.
       </p>
     </>
   );

@@ -58,11 +58,19 @@ Active Validation stays opt-in and targetless by default (runtime correlation on
 
 ## History, delta, triage
 
-In-memory history (100 compact entries, counts only). Delta compares by stable id,
-pairs moves by fingerprint (`CHANGED` with before/after ids, single entry per pair),
-flags severity changes and derives `REGRESSION` (severity worsened on an unchanged
-or moved finding). Triage (`open/reviewed/suppressed/resolved`) is presentation
-state stamped at read time; suppression requires a reason; fingerprints exclude
+Durable file-based history (`backend/.data/scans/`, atomic JSON writes, no
+database): full reports persist across restarts for local and GitHub scans;
+`/scan-history` lists the newest 500 compact entries (counts only). Retention:
+when the 501st scan is saved, files evicted from the index are deleted from
+disk, so storage cannot grow without bound; evicted scans disappear from
+history and are no longer fetchable. Delta
+compares by stable id, pairs moves by fingerprint (`CHANGED` with
+before/after ids, single entry per pair), flags severity changes and derives
+`REGRESSION` (severity worsened on an unchanged or moved finding). Triage
+(`open/triaged/planned/in_progress/fixed/verified/suppressed`;
+legacy `reviewed`→`triaged`, `resolved`→`verified`) is presentation state
+stamped at read time and persisted in `backend/.data/triage.json`;
+suppression requires a reason; fingerprints exclude
 line numbers so triage survives line moves but requires re-review on content
 change. `status_overrides` payloads are capped at 5000 entries on both scan paths.
 

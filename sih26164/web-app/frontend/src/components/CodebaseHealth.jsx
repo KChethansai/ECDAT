@@ -88,7 +88,7 @@ export default function CodebaseHealth({ analysis, report, onChanged }) {
   const findings = arr(a.findings);
   const health = obj(a.health);
   const [filter, setFilter] = useState("all");
-  if (!a.findings) return null;
+  if (!a.findings) return <p className="section-sub">No code findings in this analysis.</p>;
   const visible = filter === "all" ? findings : findings.filter((f) => f.category === filter);
   const cats = Object.keys(obj(health.byCategory));
   return (
@@ -107,6 +107,9 @@ export default function CodebaseHealth({ analysis, report, onChanged }) {
         ))}
       </div>
       <div>
+        {visible.length === 0 ? (
+          <p className="section-sub">No code findings match this filter.</p>
+        ) : null}
         {visible.slice(0, 100).map((f) => (
           <FindingRow key={f.id} finding={f} analysisId={str(a.analysis_id)} report={report} onChanged={onChanged} />
         ))}

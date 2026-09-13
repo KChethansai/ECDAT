@@ -38,6 +38,7 @@ export function AppProvider({ children }) {
   const [elapsed, setElapsed] = useState(0);
   const [sessionScans, setSessionScans] = useState([]);
   const abortRef = useRef(null);
+  const loadSeq = useRef(0);
 
   const setPrefs = useCallback((patch) => {
     setPrefsState((prev) => {
@@ -136,8 +137,10 @@ export function AppProvider({ children }) {
 
   const loadReportById = useCallback(async (rid) => {
     setError("");
+    const seq = (loadSeq.current += 1);
     try {
       const body = await api.getReport(rid);
+      if (seq !== loadSeq.current) return { ok: false, stale: true };
       setReport(body || null);
       setScanId(rid);
       setScannedTarget(str(body?.metadata?.scanTarget, rid));

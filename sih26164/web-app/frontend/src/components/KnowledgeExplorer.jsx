@@ -9,7 +9,9 @@ export default function KnowledgeExplorer({ report, components }) {
   const [open, setOpen] = useState(null);
   const base = knowledgeBase(report);
   const ctx = obj(report?.knowledgeContext);
-  if (base.length === 0) return null;
+  if (base.length === 0) {
+    return <p className="section-sub">No advisory knowledge matched this report — no guidance invented.</p>;
+  }
   const source = obj(ctx.source);
   return (
     <section className="section" aria-label="Security knowledge explorer">

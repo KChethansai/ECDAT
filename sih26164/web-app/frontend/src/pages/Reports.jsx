@@ -21,7 +21,7 @@ export default function Reports() {
     if (result.ok) {
       window.location.hash = "#/dashboard";
     } else {
-      setNotice("Unknown report id — reports are in-memory and disappear on backend restart or eviction (last 50 kept).");
+      setNotice("Unknown report id — it may have been deleted from scan history. Check History for persisted scans.");
     }
   }
 
@@ -36,7 +36,7 @@ export default function Reports() {
       {!report ? (
         <div className="card">
           <SectionEmpty>
-            No current report. <a href={href("scan")}>Run a scan</a>, or open a known in-memory report by ID below.
+            No current report. <a href={href("scan")}>Run a scan</a>, or open a persisted report by ID below.
           </SectionEmpty>
         </div>
       ) : (
@@ -61,7 +61,7 @@ export default function Reports() {
         <form onSubmit={openById}>
           <div className="cmdbar-body" style={{ padding: 0 }}>
             <label className="field grow" htmlFor="report-id">
-              In-memory report ID
+              Persisted report ID
               <input id="report-id" value={rid} onChange={(e) => setRid(e.target.value)} placeholder="e.g. 20a2ba00346a" autoComplete="off" spellCheck="false" className="mono" />
             </label>
             <button type="submit" className="btn btn-secondary">Open report</button>

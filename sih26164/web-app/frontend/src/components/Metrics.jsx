@@ -106,16 +106,7 @@ export function RiskOverview({ report, components }) {
   );
 }
 
-export function FixFirstCard({ finding, runtimeAvailable }) {
-  if (!finding) {
-    return (
-      <div className="card fixfirst calm">
-        <p className="eyebrow">FIX FIRST</p>
-        <h3>No critical or high findings</h3>
-        <p>Review the complete inventory and exposure horizon. Absence of high-priority findings is not proof of cryptographic hygiene.</p>
-      </div>
-    );
-  }
+function FixFirstItem({ finding, rank, runtimeAvailable }) {
   const runtimeLine =
     finding.scanner === "runtime"
       ? "Observed under controlled execution."
@@ -125,13 +116,12 @@ export function FixFirstCard({ finding, runtimeAvailable }) {
           ? "Not runtime-observed in this scan — not proof of absence."
           : "Static evidence only (runtime probe not run).";
   return (
-    <div className="card fixfirst" aria-label="Fix first recommendation">
-      <p className="eyebrow" style={{ color: "var(--danger)" }}>
-        FIX FIRST — HIGHEST PRIORITY
-      </p>
+    <div style={rank > 1 ? { marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--line)" } : null}>
       <h3>
         <span className="algo">{str(finding.algorithm, "?")}</span>{" "}
-        <span style={{ color: "var(--text-muted)", fontSize: 14, fontWeight: 600 }}>· top of deterministic order</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 14, fontWeight: 600 }}>
+          · {rank === 1 ? "top of deterministic order" : `priority #${rank}`}
+        </span>
       </h3>
       <div className="badge-row">
         <PriorityBadge value={finding.priority} />
@@ -160,6 +150,33 @@ export function FixFirstCard({ finding, runtimeAvailable }) {
           <dd>{runtimeLine}</dd>
         </div>
       </dl>
+      <p>
+        <a href={`#/findings/${encodeURIComponent(str(finding.id))}`}>Open finding</a>
+      </p>
+    </div>
+  );
+}
+
+export function FixFirstCard({ finding, findings, runtimeAvailable }) {
+  const items = arr(findings).length > 0 ? arr(findings).slice(0, 3)
+    : finding ? [finding] : [];
+  if (items.length === 0) {
+    return (
+      <div className="card fixfirst calm">
+        <p className="eyebrow">FIX FIRST</p>
+        <h3>No critical or high findings</h3>
+        <p>Review the complete inventory and exposure horizon. Absence of high-priority findings is not proof of cryptographic hygiene.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="card fixfirst" aria-label="Fix first recommendations">
+      <p className="eyebrow" style={{ color: "var(--danger)" }}>
+        FIX FIRST — HIGHEST PRIORITY
+      </p>
+      {items.map((f, i) => (
+        <FixFirstItem key={str(f.id) || i} finding={f} rank={i + 1} runtimeAvailable={runtimeAvailable} />
+      ))}
     </div>
   );
 }
@@ -207,7 +224,7 @@ export function ExposurePanel({ report, components }) {
         </div>
         <div className="row">
           <dt>Unknowns</dt>
-          <dd>{unknowns > 0 ? `${unknowns} planner-recorded gap(s) — see migration items` : "none recorded"}</dd>
+          <dd>{unknowns > 0 ? <><b>{unknowns}</b> planner-recorded gap(s) — <a href="#/migration">see migration items</a></> : "none recorded"}</dd>
         </div>
       </dl>
       <p className="disclaimer">Static discovery proves presence in artifacts, not runtime use. Runtime observation proves a controlled run, not full coverage.</p>

@@ -157,23 +157,31 @@ export function quantumExposure(report) {
   return total;
 }
 
-export function filterFindings(components, { priority = "all", severity = "all", scanner = "all", query = "" } = {}) {
+export function filterFindings(components, { priority = "all", severity = "all", scanner = "all", query = "", triage = "all", quantum = false, validated = false, migrationReady = false } = {}) {
   const q = String(query || "").trim().toLowerCase();
   return arr(components).filter(
     (f) =>
       (priority === "all" || f.priority === priority) &&
       (severity === "all" || f.severity === severity) &&
       (scanner === "all" || f.scanner === scanner) &&
+      (triage === "all" || str(f.triage?.status, "open") === triage) &&
+      (!quantum || QUANTUM_VULNERABLE.has(canonicalFamily(str(f.algorithm)))) &&
+      (!validated || (str(f.validationStatus, "STATIC_ONLY").startsWith("RUNTIME_") || arr(f.correlatedValidations).length > 0)) &&
+      (!migrationReady || f.migrationStatus === "MIGRATION_REQUIRED") &&
       (q === "" ||
-        `${str(f.algorithm)} ${str(f.file_path)} ${str(f.evidence)} ${str(f.library)} ${str(f.usage)}`.toLowerCase().includes(q)),
+        `${str(f.algorithm)} ${str(f.category)} ${str(f.file_path)} ${str(f.evidence)} ${str(f.library)} ${str(f.usage)} ${str(f.scanner)} ${str(f.id)} ${str(f.fp)}`.toLowerCase().includes(q)),
   );
 }
 
-export function activeFilterLabels({ priority = "all", severity = "all", scanner = "all", query = "" } = {}) {
+export function activeFilterLabels({ priority = "all", severity = "all", scanner = "all", query = "", triage = "all", quantum = false, validated = false, migrationReady = false } = {}) {
   const out = [];
   if (priority !== "all") out.push(`priority ${priority}`);
   if (severity !== "all") out.push(`severity ${severity}`);
   if (scanner !== "all") out.push(`scanner ${scanner}`);
+  if (triage !== "all") out.push(`triage ${triage}`);
+  if (quantum) out.push("quantum-relevant");
+  if (validated) out.push("validated");
+  if (migrationReady) out.push("migration-ready");
   if (String(query || "").trim() !== "") out.push(`“${String(query).trim()}”`);
   return out;
 }

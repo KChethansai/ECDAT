@@ -7,7 +7,13 @@ import TriageControl from "./TriageControl.jsx";
 
 function SecurityContext({ finding, report }) {
   const matches = matchesFor(finding);
-  if (matches.length === 0) return null;
+  if (matches.length === 0) {
+    return (
+      <Sec icon={<IconDoc size={13} />} title="SECURITY CONTEXT">
+        <p className="cell-sub">No advisory knowledge matched this finding — no guidance invented.</p>
+      </Sec>
+    );
+  }
   const source = (report?.knowledgeContext?.source) || {};
   return (
     <Sec icon={<IconDoc size={13} />} title={`SECURITY CONTEXT (${matches.length})`}>
@@ -52,7 +58,17 @@ function ValidationSection({ finding, report }) {
   const all = arr(report?.validations?.results);
   const mine = all.filter((r) => r && r.finding_id === f.id);
   const status = str(f.validationStatus, "STATIC_ONLY");
-  if (status === "STATIC_ONLY" && mine.length === 0) return null;
+  if (status === "STATIC_ONLY" && mine.length === 0) {
+    const probed = arr(f.correlatedValidations).length > 0;
+    return (
+      <Sec icon={<IconGauge size={13} />} title="ACTIVE VALIDATION">
+        <p><b>Status:</b> <span className="mono">STATIC_ONLY</span> —{" "}
+          {probed
+            ? "probes ran but evidence did not confirm this finding; absence of confirmation is not proof of safety."
+            : "static evidence; no runtime observation for this finding in this scan."}</p>
+      </Sec>
+    );
+  }
   return (
     <Sec icon={<IconGauge size={13} />} title="ACTIVE VALIDATION">
       <p>
@@ -194,7 +210,7 @@ export default function FindingDrawer({ finding, byId, report, onClose, onTriage
                 <b>Expires:</b> {f.expires_at}
               </p>
             ) : null}
-            <p>Strength is an evidence-type rank (HIGH / MEDIUM / LOW), not a probability.</p>
+            <p>Strength is an evidence-type rank (HIGH / MEDIUM / LOW), not a probability. HIGH: runtime observation, certificate metadata, binary symbol/library reference, or direct evidence at confidence ≥ 0.8. LOW: binary string reference or confidence below 0.6. MEDIUM: everything else.</p>
           </Sec>
 
           <Sec icon={<IconGauge size={13} />} title="RISK ASSESSMENT">
@@ -257,27 +273,60 @@ export default function FindingDrawer({ finding, byId, report, onClose, onTriage
             <p>ML-KEM does not automatically drop into every HSM or existing cryptographic architecture — verify provider support first.</p>
           </Sec>
 
-          <Sec icon={<IconLink size={13} />} title={`RELATED EVIDENCE (${related.length})`}>
-            {related.length === 0 ? (
-              <p>No linked findings in this scan (absence of links is not proof of isolation).</p>
+          <Sec icon={<IconLink size={13} />} title={`BLAST RADIUS (${related.length + supports.length})`}>
+            <p className="cell-sub">Evidence-backed links only; related links capped at 8 per finding by the deterministic engine.</p>
+            {related.length === 0 && supports.length === 0 ? (
+              <p>No evidence-backed relationships found.</p>
             ) : (
-              <ul>
-                {related.map((rel) => {
-                  const target = byId[rel.id];
-                  return (
-                    <li key={rel.id}>
-                      {target ? (
-                        <>
-                          <b className="mono">{str(target.algorithm)}</b> · {str(target.scanner)} · {str(target.usage)} ({str(rel.relation)})
-                        </>
-                      ) : (
-                        <>
-                          {rel.id} ({str(rel.relation)})
-                        </>
-                      )}
-                    </li>
-                  );
-                })}
+              <ul className="blast">
+                <li>
+                  <b className="mono">{str(f.algorithm)}</b> ·{" "}
+                  <code className="evidence">{str(f.file_path, "—")}:{lineLabel(f.line)}</code>
+                  <ul>
+                    {related.length > 0 ? (
+                      <li>
+                        Related findings ({related.length})
+                        <ul>
+                          {related.map((rel) => {
+                            const target = byId[rel.id];
+                            return (
+                              <li key={rel.id}>
+                                {target ? (
+                                  <a href={`#/findings/${encodeURIComponent(str(target.id))}`}>
+                                    <b className="mono">{str(target.algorithm)}</b>
+                                  </a>
+                                ) : (
+                                  <span className="mono">{str(rel.id).slice(0, 24)}</span>
+                                )}{" "}· {str(target?.scanner)} · {str(target?.usage)} ({str(rel.relation)})
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    ) : null}
+                    {supports.length > 0 ? (
+                      <li>
+                        Runtime support ({supports.length}) — static evidence backed by controlled observations
+                        <ul>
+                          {supports.map((sid) => {
+                            const target = byId[sid];
+                            return (
+                              <li key={str(sid)}>
+                                {target ? (
+                                  <a href={`#/findings/${encodeURIComponent(str(target.id))}`}>
+                                    <b className="mono">{str(target.algorithm)}</b>
+                                  </a>
+                                ) : (
+                                  <span className="mono">{str(sid).slice(0, 24)}</span>
+                                )}{" "}· runtime-observed
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    ) : null}
+                  </ul>
+                </li>
               </ul>
             )}
           </Sec>

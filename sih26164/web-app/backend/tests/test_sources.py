@@ -309,6 +309,71 @@ def test_profiles_and_unknown():
         resolve_profile("nope", None, False, False)
 
 
+def test_relativize_remaps_all_finding_links(tmp_path):
+    """Relativization must remap every id-based link, not just validations."""
+    from app.sources.normalize import relativize_report
+
+    ws = tmp_path / "ws" / "repo-main"
+    ws.mkdir(parents=True)
+    (ws / "a.py").write_text("x")
+    p1, p2 = str(ws / "a.py"), str(ws / "b.py")
+    report = {
+        "components": [
+            {"id": "old1", "scanner": "source", "file_path": p1, "line": 3,
+             "algorithm": "RSA", "category": "asymmetric",
+             "related": [{"id": "old2", "relation": "same-artifact"}],
+             "correlation": {"supports": ["old2"], "note": ""},
+             "correlatedValidations": ["v-old"]},
+            {"id": "old2", "scanner": "source", "file_path": p2, "line": 5,
+             "algorithm": "AES-128", "category": "symmetric"},
+        ],
+        "validations": {"results": [{"finding_id": "old1"}]},
+        "intelligence": {
+            "inventory": [{"family": "RSA", "findingIds": ["old1"], "artifacts": [p1]}],
+            "graph": {"nodes": [{"id": "finding:old1", "type": "finding", "label": "x"},
+                                {"id": f"artifact:{p1}", "type": "artifact", "label": "a.py"}],
+                      "edges": [{"from": f"artifact:{p1}", "to": "finding:old1", "relation": "contains"},
+                                {"from": "finding:old1", "to": "finding:old2", "relation": "same-artifact"}]},
+        },
+        "migration": {"workItems": [{"family": "RSA", "findingIds": ["old1"], "artifacts": [p1]}],
+                      "report": {"affectedArtifacts": [p1, p2]}},
+        "codeAnalysis": {"findings": [
+            {"id": "c-old", "analyzer": "dead_code", "category": "dead_code",
+             "file_path": "mod.py", "symbol": "s", "title": "t",
+             "related_files": ["mod.py", "other.py"]},
+        ]},
+    }
+    relativize_report(report, tmp_path / "ws", "o", "r", SHA)
+    ids = {c["id"] for c in report["components"]}
+    assert "old1" not in ids and "old2" not in ids
+    by_id = {c["id"]: c for c in report["components"]}
+    first = next(c for c in report["components"] if c["file_path"].endswith("/a.py"))
+    assert first["related"][0]["id"] in ids
+    assert first["correlation"]["supports"][0] in ids
+    assert report["validations"]["results"][0]["finding_id"] == first["id"]
+    assert report["intelligence"]["inventory"][0]["findingIds"] == [first["id"]]
+    assert report["migration"]["workItems"][0]["findingIds"] == [first["id"]]
+    assert first["id"] in by_id and first["related"][0]["id"] in by_id
+    # paths: no absolute workspace paths survive anywhere user-facing
+    assert report["intelligence"]["inventory"][0]["artifacts"] == [first["file_path"]]
+    assert report["migration"]["workItems"][0]["artifacts"] == [first["file_path"]]
+    assert all(not a.startswith("/") for a in report["migration"]["report"]["affectedArtifacts"])
+    code = report["codeAnalysis"]["findings"][0]
+    assert code["file_path"] == "o/r/mod.py"
+    assert code["related_files"] == ["o/r/mod.py", "o/r/other.py"]
+    # graph rebuilt from relativized components: every finding node resolves
+    graph = report["intelligence"]["graph"]
+    node_ids = {n["id"] for n in graph["nodes"]}
+    assert f"finding:{first['id']}" in node_ids
+    assert not [n for n in node_ids if n.startswith("finding:old")]
+    for e in graph["edges"]:
+        if e["from"].startswith("finding:"):
+            assert e["from"][8:] in ids
+        if e["to"].startswith("finding:"):
+            assert e["to"][8:] in ids
+    assert not [n for n in node_ids if "/tmp" in n or str(tmp_path) in n]
+
+
 def test_delta_and_triage():
     from app.sources.history import apply_triage
 
@@ -338,7 +403,9 @@ def test_delta_and_triage():
     record = history_record("rid1", {"type": "github", "owner": "o", "repo": "r",
                                      "sha": SHA, "ref_requested": "main"},
                             "full", before, 1.5)
-    assert record["counts"] == {"crypto": 2, "critical": 0, "code": 1}
+    assert record["counts"] == {"crypto": 2, "critical": 0, "high": 0,
+                                 "code": 1, "total": 3}
+    assert record["status"] == "complete"
 
 
 # --- relativization -----------------------------------------------------------------------
@@ -531,10 +598,15 @@ def test_profile_governs_scanners_by_default(monkeypatch, repo_body):
 
 
 def test_triage_resolved_state():
-    """Resolved is a valid workflow state; suppression still needs a reason."""
+    """Verified is the terminal workflow state; legacy reviewed/resolved map
+    deterministically; suppression still needs a reason."""
     store: dict = {}
-    entry = set_triage(store, "github:o/r", "f123", "resolved")
-    assert entry["status"] == "resolved" and entry["reason"] == ""
+    entry = set_triage(store, "github:o/r", "f123", "verified")
+    assert entry["status"] == "verified" and entry["reason"] == ""
+    assert set_triage(store, "github:o/r", "f124", "resolved")["status"] == "verified"
+    assert set_triage(store, "github:o/r", "f125", "reviewed")["status"] == "triaged"
+    for s in ("open", "triaged", "planned", "in_progress", "fixed"):
+        assert set_triage(store, "github:o/r", "f-" + s, s)["status"] == s
     with pytest.raises(ValueError):
         set_triage(store, "github:o/r", "f123", "suppressed")
     with pytest.raises(ValueError):

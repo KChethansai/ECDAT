@@ -39,6 +39,35 @@ test("filterFindings combines priority, severity, scanner, query", () => {
   assert.deepEqual(activeFilterLabels({ severity: "high", query: "x" }), ["severity high", "“x”"]);
 });
 
+test("filterFindings searches category, scanner, and finding id", () => {
+  const rows = [
+    { id: "abc123", fp: "fp9", severity: "high", priority: "P1", scanner: "dependency", algorithm: "AES-128", category: "WEAK_CLASSICAL", file_path: "x.py", evidence: "e", usage: "encrypt" },
+  ];
+  assert.equal(filterFindings(rows, { query: "weak_classical" }).length, 1);
+  assert.equal(filterFindings(rows, { query: "DEPENDENCY" }).length, 1);
+  assert.equal(filterFindings(rows, { query: "abc123" }).length, 1);
+  assert.equal(filterFindings(rows, { query: "fp9" }).length, 1);
+  assert.equal(filterFindings(rows, { query: "zzz" }).length, 0);
+});
+
+test("filterFindings presets: triage, quantum, validated, migration-ready", () => {
+  const rows = [
+    { id: "q", severity: "critical", priority: "P0", scanner: "source", algorithm: "RSA-2048", file_path: "q.py", evidence: "e", usage: "sign", triage: { status: "open" }, validationStatus: "STATIC_ONLY", correlatedValidations: [], migrationStatus: "MIGRATION_REQUIRED" },
+    { id: "v", severity: "medium", priority: "P2", scanner: "source", algorithm: "AES-128", file_path: "v.py", evidence: "e", usage: "encrypt", triage: { status: "suppressed", reason: "accepted-risk" }, validationStatus: "RUNTIME_OBSERVED", correlatedValidations: ["x"], migrationStatus: "DISCOVERED" },
+  ];
+  assert.equal(filterFindings(rows, { triage: "open" }).length, 1);
+  assert.equal(filterFindings(rows, { triage: "suppressed" }).length, 1);
+  assert.equal(filterFindings(rows, { quantum: true }).map((f) => f.id).join(), "q");
+  assert.equal(filterFindings(rows, { validated: true }).map((f) => f.id).join(), "v");
+  assert.equal(filterFindings([
+    { id: "m", validationStatus: "NOT_APPLICABLE" },
+    { id: "s", validationStatus: "STATIC_ONLY" },
+  ], { validated: true }).length, 0);
+  assert.equal(filterFindings(rows, { migrationReady: true }).map((f) => f.id).join(), "q");
+  assert.deepEqual(activeFilterLabels({ triage: "suppressed", quantum: true }), ["triage suppressed", "quantum-relevant"]);
+  assert.deepEqual(activeFilterLabels({}), []);
+});
+
 test("repoIdentity null for local reports", () => {
   assert.equal(repoIdentity({}), null);
   assert.equal(repoIdentity({ source: { type: "local" } }), null);

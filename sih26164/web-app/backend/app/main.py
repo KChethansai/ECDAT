@@ -1,5 +1,6 @@
-"""ECDAT FastAPI service: scan -> risk -> PQC recs -> CBOM. No database; reports are
-rebuilt deterministically and held in process memory (restart clears them — re-POST).
+"""ECDAT FastAPI service: scan -> risk -> PQC recs -> CBOM. Reports live in
+process memory (cap 50) and are ALSO persisted to backend/.data/ (file-based
+JSON store, atomic writes) so scans survive restarts. Triage persists too.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from . import scan_store
 from .pipeline import REAL_SCANNERS, SCANNERS, run_scan
 
 app = FastAPI(title="ECDAT", version="0.1.0")
@@ -25,10 +27,31 @@ app.add_middleware(
     max_age=600,
 )
 REPORTS: dict[str, dict] = {}
-MAX_REPORTS = 50  # in-memory only; oldest evicted, restart clears all
+MAX_REPORTS = 50  # memory cache cap; evicted/restarted reports reload from backend/.data
 SOURCE_HISTORY: list[dict] = []
 MAX_HISTORY = 100  # compact entries only (counts, never findings)
 TRIAGE: dict[tuple[str, str], dict] = {}  # (scope, fingerprint) -> workflow state
+_TRIAGE_LOADED = False
+
+
+def _ensure_triage() -> None:
+    """One-time merge of persisted triage into memory (memory wins ties)."""
+    global _TRIAGE_LOADED
+    if _TRIAGE_LOADED:
+        return
+    _TRIAGE_LOADED = True
+    try:
+        for key, entry in scan_store.load_triage().items():
+            TRIAGE.setdefault(key, entry)
+    except OSError:
+        pass
+
+
+def _save_triage() -> None:
+    try:
+        scan_store.save_triage(TRIAGE)
+    except OSError:
+        pass  # ponytail: scan/triage writes are best-effort; the API answer stays authoritative
 BASE = Path(__file__).resolve().parent.parent
 SAMPLES = BASE / "samples"
 WORKSPACE_ROOT = BASE.parents[2]
@@ -134,21 +157,52 @@ def create_scan(req: ScanRequest) -> dict:
         raise HTTPException(404, f"scan target not found: {req.target}")
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    rid = _store_report(report)
+    rid = _store_report(report, target=req.target, profile="local")
     return {"id": rid, "report": report}
 
 
-def _store_report(report: dict) -> str:
-    rid = uuid.uuid4().hex[:12]
+def _cache_report(rid: str, report: dict) -> None:
     REPORTS[rid] = report
     while len(REPORTS) > MAX_REPORTS:
         REPORTS.pop(next(iter(REPORTS)))
+
+
+def _store_report(report: dict, target: str = "", profile: str = "local",
+                  duration_s: float = 0.0) -> str:
+    rid = uuid.uuid4().hex[:12]
+    _cache_report(rid, report)
     analysis = report.get("codeAnalysis") if isinstance(report, dict) else None
     if isinstance(analysis, dict) and analysis.get("analysis_id"):
         CODE_ANALYSES[analysis["analysis_id"]] = analysis
         while len(CODE_ANALYSES) > MAX_ANALYSES:
             CODE_ANALYSES.pop(next(iter(CODE_ANALYSES)))
+    # Durable history for LOCAL and GitHub scans alike (best-effort disk).
+    from .sources.history import history_record
+
+    SOURCE_HISTORY.append(history_record(
+        rid, report.get("source", {}) if isinstance(report, dict) else {},
+        profile, report, duration_s, target))
+    while len(SOURCE_HISTORY) > MAX_HISTORY:
+        SOURCE_HISTORY.pop(0)
+    try:
+        scan_store.save_scan(scan_store.scan_record(
+            rid, report, target, profile, duration_s))
+    except (OSError, ValueError):
+        pass
     return rid
+
+
+def _resolve_report(rid: str):
+    """Memory-first, durable-store fallback. Reloaded reports re-enter the
+    memory cache (read path only — validation correlation stamps the memory
+    copy and is never re-persisted, so history stays immutable)."""
+    if rid in REPORTS:
+        return REPORTS[rid]
+    record = scan_store.get_scan(rid)
+    if record is None:
+        return None
+    _cache_report(rid, record["report"])
+    return record["report"]
 
 
 def _create_remote_scan(req: ScanRequest) -> dict:
@@ -157,7 +211,6 @@ def _create_remote_scan(req: ScanRequest) -> dict:
 
     from .pipeline import run_github_scan
     from .sources import AcquisitionError
-    from .sources.history import history_record
 
     if not isinstance(req.source, dict) or req.source.get("type") != "github":
         raise HTTPException(400, "unsupported source (valid: {type: github, url, ref?})")
@@ -192,21 +245,18 @@ def _create_remote_scan(req: ScanRequest) -> dict:
         raise HTTPException(400, str(exc))
     except AcquisitionError as exc:
         raise HTTPException(502, f"repository acquisition failed: {exc}")
-    rid = _store_report(report)
-    SOURCE_HISTORY.append(history_record(rid, report.get("source", {}),
-                                         report["source"].get("profile", "full"),
-                                         report, _time.time() - started))
-    while len(SOURCE_HISTORY) > MAX_HISTORY:
-        SOURCE_HISTORY.pop(0)
+    rid = _store_report(report, profile=report.get("source", {}).get("profile", "full"),
+                        duration_s=_time.time() - started)
     return {"id": rid, "report": report}
 
 
 @app.get("/reports/{rid}")
 def get_report(rid: str) -> dict:
-    if rid not in REPORTS:
-        raise HTTPException(404, "unknown report (reports are in-memory; re-POST /scans)")
-    _apply_report_triage(REPORTS[rid])
-    return REPORTS[rid]
+    report = _resolve_report(rid)
+    if report is None:
+        raise HTTPException(404, "unknown report (re-POST /scans or pick it from scan history)")
+    _apply_report_triage(report)
+    return report
 
 
 def _triage_scope(report: dict) -> str:
@@ -219,6 +269,7 @@ def _triage_scope(report: dict) -> str:
 def _apply_report_triage(report: dict) -> None:
     from .sources.history import apply_triage
 
+    _ensure_triage()
     scope = _triage_scope(report)
     apply_triage(report.get("components", []), TRIAGE, scope)
     apply_triage((report.get("codeAnalysis") or {}).get("findings", []), TRIAGE, scope)
@@ -226,7 +277,16 @@ def _apply_report_triage(report: dict) -> None:
 
 @app.get("/scan-history")
 def scan_history() -> dict:
-    return {"history": list(reversed(SOURCE_HISTORY))}
+    """Durable history: persisted scans (local + GitHub) first, then any
+    legacy in-memory entries not yet persisted, deduplicated by scan id."""
+    try:
+        durable = scan_store.list_scans()
+    except OSError:
+        durable = []
+    seen = {e.get("scan_id") for e in durable if isinstance(e, dict)}
+    legacy = [h for h in reversed(SOURCE_HISTORY)
+              if isinstance(h, dict) and h.get("scan_id") not in seen]
+    return {"history": list(durable) + legacy}
 
 
 class DeltaRequest(BaseModel):
@@ -238,15 +298,16 @@ class DeltaRequest(BaseModel):
 def scan_delta(req: DeltaRequest) -> dict:
     from .sources.history import delta
 
-    if req.before not in REPORTS or req.after not in REPORTS:
-        raise HTTPException(404, "unknown report id (reports are in-memory; re-POST /scans)")
-    return delta(REPORTS[req.before], REPORTS[req.after])
+    before, after = _resolve_report(req.before), _resolve_report(req.after)
+    if before is None or after is None:
+        raise HTTPException(404, "unknown report id (re-POST /scans or pick it from scan history)")
+    return delta(before, after)
 
 
 class TriageRequest(BaseModel):
     scope: str = Field(description="triage scope, e.g. github:owner/repo")
     fingerprint: str = Field(description="stable finding fingerprint (fp)")
-    status: str = Field(description="open|reviewed|suppressed|resolved")
+    status: str = Field(description="open|triaged|planned|in_progress|fixed|verified|suppressed")
     reason: str = Field(default="", description="required for suppressed")
 
 
@@ -254,16 +315,20 @@ class TriageRequest(BaseModel):
 def set_finding_triage(req: TriageRequest) -> dict:
     from .sources.history import set_triage
 
+    _ensure_triage()
     if not req.scope or len(req.scope) > 256:
         raise HTTPException(400, "invalid triage scope")
     try:
-        return set_triage(TRIAGE, req.scope, req.fingerprint, req.status, req.reason)
+        entry = set_triage(TRIAGE, req.scope, req.fingerprint, req.status, req.reason)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    _save_triage()
+    return entry
 
 
 @app.get("/triage")
 def list_triage(scope: str = "") -> dict:
+    _ensure_triage()
     if len(scope) > 256:
         raise HTTPException(400, "invalid triage scope")
     entries = [e for (s, _), e in TRIAGE.items() if not scope or s == scope]
@@ -275,7 +340,7 @@ MAX_VALIDATIONS = 50  # in-memory only; oldest evicted, restart clears all
 
 
 class ValidationRequest(BaseModel):
-    report_id: str = Field(description="in-memory report id from POST /scans")
+    report_id: str = Field(description="report id from POST /scans (memory or scan history)")
     finding_ids: list[str] | None = Field(default=None, description="subset to validate "
                            "(default: all validatable findings)")
     targets: list[dict] | None = Field(default=None, description="explicit probe targets "
@@ -288,15 +353,15 @@ def create_validation(req: ValidationRequest) -> dict:
     """Re-validate without rescanning: new immutable run, history preserved."""
     from .validation import ValidationPolicy, apply_correlation, run_validations
 
-    if req.report_id not in REPORTS:
-        raise HTTPException(404, "unknown report (reports are in-memory; re-POST /scans)")
+    report = _resolve_report(req.report_id)
+    if report is None:
+        raise HTTPException(404, "unknown report (re-POST /scans or pick it from scan history)")
     try:
         policy = ValidationPolicy.from_dict(req.policy)
         _cap_list("finding_ids", req.finding_ids)
         _cap_list("targets", req.targets, 200)
     except ValueError as exc:
         raise HTTPException(400, f"invalid validation policy: {exc}")
-    report = REPORTS[req.report_id]
     components = report.get("components", [])
     subset = [c for c in components
               if req.finding_ids is None or c.get("id") in set(req.finding_ids or [])]
@@ -323,9 +388,9 @@ def get_validation(vid: str) -> dict:
 def get_sarif(rid: str) -> dict:
     from .validation.sarif import to_sarif
 
-    if rid not in REPORTS:
-        raise HTTPException(404, "unknown report (reports are in-memory; re-POST /scans)")
-    report = REPORTS[rid]
+    report = _resolve_report(rid)
+    if report is None:
+        raise HTTPException(404, "unknown report (re-POST /scans or pick it from scan history)")
     validations = report.get("validations", {}).get("results", []) if isinstance(report, dict) else []
     return to_sarif(report, validations)
 

@@ -16,7 +16,7 @@ function fmtWhen(ts) {
 }
 
 export default function Validation() {
-  const { report, scanId } = useStore();
+  const { report, scanId, loading } = useStore();
   const vsum = validationSummary(report);
   const [findingIds, setFindingIds] = useState("");
   const [targets, setTargets] = useState("");
@@ -54,7 +54,7 @@ export default function Validation() {
   return (
     <>
       <PageHead eyebrow="ACTIVE VALIDATION" title="Validation" sub="Observation and correlation only — validation never changes severity or priority." />
-      <RequireReport report={report} title="NO VALIDATION DATA">
+      <RequireReport report={report} loading={loading} title="NO VALIDATION DATA">
         <div className="card" aria-label="Validation from this scan">
           <p className="eyebrow">THIS SCAN</p>
           {vsum ? (
