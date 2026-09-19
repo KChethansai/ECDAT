@@ -22,3 +22,6 @@ Thumbs.db
 .idea/
 # Local-only caches
 *.log
+
+# playwright MCP browser profile (local-only, recreated on each QA run)
+.playwright-mcp/
